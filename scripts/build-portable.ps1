@@ -55,6 +55,8 @@ Copy-Item (Join-Path $repoRoot "assets\shaders\anime4k\*.glsl") (Join-Path $out 
 Copy-Item (Join-Path $repoRoot "assets\web") (Join-Path $out "web") -Recurse -Force
 # Instructions for beta testers, copied verbatim (keeps its UTF-8 bytes intact).
 Copy-Item (Join-Path $repoRoot "packaging\README-portable.txt") (Join-Path $out "README.txt") -Force
+# LimeKit itself is GPL-3.0, and the license has to travel with the binaries.
+Copy-Item (Join-Path $repoRoot "LICENSE") (Join-Path $out "LICENSE.txt") -Force
 
 # Third-party license notices (LGPL binaries above + MIT shaders/three.js).
 $licensesOut = Join-Path $out "licenses"
@@ -71,5 +73,30 @@ Write-Host "portable build ready: $out"
 Get-ChildItem $out -Recurse -File | ForEach-Object {
     "  {0,-22} {1,8:N0} bytes" -f $_.FullName.Substring($out.Length + 1), $_.Length
 }
+# The release archive, named the way the beta welcome note tells testers to
+# look for it, plus SHA-256 sums for the release notes. The sums file sits next
+# to the archive rather than inside it: a checksum shipped in the same download
+# proves nothing. Paths are relative to dist/, so `sha256sum -c` works there.
+$version = (Select-String -Path (Join-Path $repoRoot "Cargo.toml") -Pattern '^version = "(.+)"' |
+    Select-Object -First 1).Matches[0].Groups[1].Value
+$dist = Split-Path -Parent $out
+$zipName = "LimeKit-$version-win64.zip"
+$zip = Join-Path $dist $zipName
+if (Test-Path $zip) { Remove-Item $zip -Force }
+Compress-Archive -Path $out -DestinationPath $zip
+
+$hashed = @($zipName) + (@("LimeKit.exe", "limekit-daemon.exe", "renderer.exe") |
+    ForEach-Object { "LimeKit/$_" })
+$sums = foreach ($relative in $hashed) {
+    $hash = (Get-FileHash -Algorithm SHA256 (Join-Path $dist $relative)).Hash.ToLower()
+    "$hash  $relative"
+}
+Set-Content -Path (Join-Path $dist "SHA256SUMS.txt") -Value $sums -Encoding ascii
+
+Write-Host ""
+Write-Host "release archive: $zip"
+Write-Host "SHA-256 (also in dist\SHA256SUMS.txt, paste into the release notes):"
+$sums | ForEach-Object { "  $_" }
+
 Write-Host ""
 Write-Host "run it: `"$out\LimeKit.exe`""

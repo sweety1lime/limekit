@@ -92,13 +92,15 @@ checkbox in settings. To uninstall, delete the folder.
 **About the Windows warning.** Releases aren't signed with a certificate yet, so
 the first launch shows "Windows protected your PC". That's not a sign of a virus
 — it's the absence of a paid certificate, which costs money and isn't available
-everywhere. I publish the SHA-256 of every file in the release notes, so you can
-check you downloaded my build. When signing happens, I'll say so in a release.
+everywhere. The SHA-256 of the archive and of the programs inside it are in the release
+notes and in a `SHA256SUMS.txt` next to the archive, so you can check you
+downloaded my build. When signing happens, I'll say so in a release.
 
-**Upgrading from LimeWall 0.1.** Quit the old version from the tray first,
-otherwise it keeps holding its files open. On first launch LimeKit moves your
-library and settings from `%APPDATA%\LimeWall` to `%APPDATA%\LimeKit` by itself
-— nothing to redo.
+**Upgrading from LimeWall 0.1.** Just run LimeKit. It asks the old version to
+quit, moves your library and settings from `%APPDATA%\LimeWall` to
+`%APPDATA%\LimeKit`, and takes over autostart if you had it on. Any `.wpk` files
+you've already shared still open. If the old version is frozen and won't quit,
+close it from the tray and start LimeKit again.
 
 ## How it's built
 
