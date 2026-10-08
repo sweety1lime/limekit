@@ -289,6 +289,13 @@ fn bundled_sample_entry() -> Option<PathBuf> {
 #[tauri::command]
 async fn import_bundled_sample() -> Result<library::LibraryItem, String> {
     blocking(|| {
+        // The library looks empty because the LimeWall one has not moved yet.
+        // Seeding it now would make the half-created directory look real, and
+        // the old library would never be brought over.
+        if platform::appdata::migration_pending() {
+            return Err("библиотека LimeWall ещё не перенесена: закройте старую                         версию через трей и перезапустите LimeKit"
+                .to_owned());
+        }
         let entry = bundled_sample_entry().ok_or("bundled sample wallpaper not found")?;
         library::Library::default_location()?.import_web_folder_meta(
             &entry,
@@ -381,8 +388,16 @@ fn import_packages(app: tauri::AppHandle, packages: Vec<std::path::PathBuf>) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Before the library, the log or the daemon can create the data directory:
-    // see platform::appdata. Whichever of the UI and the daemon starts first
-    // does the move; the other finds it done.
+    // see platform::appdata. An upgrading tester usually still has the LimeWall
+    // daemon in the tray, holding its log open inside the directory to be
+    // moved, so ask it to quit first. Whichever of the UI and the daemon starts
+    // first does the move; the other finds it done.
+    if platform::appdata::migration_pending() {
+        let stopped = ipc::stop_legacy_daemon(std::time::Duration::from_secs(3));
+        if stopped != ipc::LegacyDaemon::NotRunning {
+            eprintln!("old LimeWall daemon: {stopped:?}");
+        }
+    }
     let migration = platform::appdata::migrate_user_data();
     if !matches!(migration, platform::appdata::Migration::NothingToDo) {
         eprintln!("data directory: {migration}");

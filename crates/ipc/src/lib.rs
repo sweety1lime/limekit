@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 
 mod transport;
 
-pub use transport::{LocalServer, LocalStream, TransportError, default_endpoint, send_request};
+pub use transport::{
+    LegacyDaemon, LocalServer, LocalStream, TransportError, default_endpoint, legacy_endpoint,
+    send_request, stop_legacy_daemon,
+};
 
 pub const PROTOCOL_VERSION: u16 = 1;
 pub const MAX_FRAME_SIZE: usize = 1024 * 1024;

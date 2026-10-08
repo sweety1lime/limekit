@@ -109,6 +109,63 @@ fn migrate_autostart() {
     }
 }
 
+/// Run-key value LimeWall 0.1 registered its autostart under.
+const LEGACY_AUTOSTART_APP: &str = "LimeWall";
+
+/// What to do about an autostart entry LimeWall 0.1 left in the Run key.
+#[derive(Debug, PartialEq, Eq)]
+enum LegacyAutostart {
+    /// Nothing is registered under the old name.
+    Nothing,
+    /// LimeKit already has its own entry: the old one is only a duplicate.
+    Remove,
+    /// The user had autostart on and LimeKit has no entry yet: register
+    /// LimeKit, then drop the old one.
+    Replace,
+}
+
+fn legacy_autostart_action(legacy: Option<&str>, current: Option<&str>) -> LegacyAutostart {
+    match (legacy, current) {
+        (None, _) => LegacyAutostart::Nothing,
+        (Some(_), Some(_)) => LegacyAutostart::Remove,
+        (Some(_), None) => LegacyAutostart::Replace,
+    }
+}
+
+/// Takes over the autostart entry LimeWall 0.1 registered.
+///
+/// Left in place it would launch the old daemon at every logon. Its data has
+/// already moved to LimeKit, so it would come up with nothing to show, add a
+/// second tray icon and fight the new daemon for the layer behind the icons.
+/// The user's choice to start with Windows carries over; the old entry goes.
+fn migrate_legacy_autostart() {
+    let legacy = platform::autostart_command(LEGACY_AUTOSTART_APP)
+        .ok()
+        .flatten();
+    let current = platform::autostart_command(AUTOSTART_APP).ok().flatten();
+    match legacy_autostart_action(legacy.as_deref(), current.as_deref()) {
+        LegacyAutostart::Nothing => return,
+        LegacyAutostart::Remove => {}
+        LegacyAutostart::Replace => {
+            let Ok(exe) = std::env::current_exe() else {
+                return;
+            };
+            let command = autostart_command_for(&exe);
+            // Register LimeKit before dropping LimeWall: if this fails, the
+            // user keeps the old autostart rather than ending up with none.
+            if let Err(error) = platform::set_autostart(AUTOSTART_APP, Some(&command)) {
+                eprintln!("failed to carry autostart over from LimeWall: {error}");
+                return;
+            }
+            println!("autostart carried over from LimeWall: {command}");
+        }
+    }
+    match platform::set_autostart(LEGACY_AUTOSTART_APP, None) {
+        Ok(()) => println!("removed the LimeWall autostart entry"),
+        Err(error) => eprintln!("failed to remove the LimeWall autostart entry: {error}"),
+    }
+}
+
 pub fn run(endpoint: Option<&str>, state_path: Option<&Path>) -> anyhow::Result<()> {
     let endpoint = endpoint
         .map(str::to_owned)
@@ -120,6 +177,7 @@ pub fn run(endpoint: Option<&str>, state_path: Option<&Path>) -> anyhow::Result<
     let server = ipc::LocalServer::bind(&endpoint)
         .with_context(|| format!("failed to bind renderer endpoint {endpoint:?}"))?;
     println!("renderer daemon listening at {endpoint}");
+    migrate_legacy_autostart();
     migrate_autostart();
 
     let (message_tx, message_rx) = mpsc::channel::<Message>();
@@ -1770,6 +1828,25 @@ mod tests {
         let exe = PathBuf::from(r"C:\Program Files\LimeKit").join(DAEMON_EXE);
         let other = format!("\"{}\" serve", live.display());
         assert!(!should_migrate_autostart(&other, &exe));
+    }
+
+    #[test]
+    fn a_limewall_autostart_entry_is_carried_over_or_dropped() {
+        assert_eq!(legacy_autostart_action(None, None), LegacyAutostart::Nothing);
+        assert_eq!(
+            legacy_autostart_action(None, Some("\"new\"")),
+            LegacyAutostart::Nothing
+        );
+        // Autostart was on under the old name: it stays on under the new one.
+        assert_eq!(
+            legacy_autostart_action(Some("\"old\""), None),
+            LegacyAutostart::Replace
+        );
+        // LimeKit already starts with Windows; the old entry is a duplicate.
+        assert_eq!(
+            legacy_autostart_action(Some("\"old\""), Some("\"new\"")),
+            LegacyAutostart::Remove
+        );
     }
 
     #[test]

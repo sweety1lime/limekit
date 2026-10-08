@@ -263,9 +263,8 @@ fn main() -> anyhow::Result<()> {
     platform::harden_process();
     // Before any subcommand can create the data directory and strand the
     // pre-rename library. Cheap and idempotent once migrated.
-    let migration = platform::appdata::migrate_user_data();
-    if !matches!(migration, platform::appdata::Migration::NothingToDo) {
-        println!("data directory: {migration}");
+    if let Some(line) = renderer::take_over_legacy_data() {
+        println!("{line}");
     }
     let cli = Cli::parse();
     match cli.command {
