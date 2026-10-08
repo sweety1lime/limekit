@@ -7,7 +7,7 @@
 кладётся в сборку (атрибуция, LGPL-исходники и право на пере-линковку, текст MIT).
 Каноничные тексты GNU (LGPL-2.1/3.0, GPL-3.0) тянет `scripts/fetch-licenses.ps1`
 в `licenses/vendor/` (не в git, как `third_party/`), а `scripts/build-portable.ps1`
-раскладывает их в `dist/LimeWall/licenses/`.
+раскладывает их в `dist/LimeKit/licenses/`.
 
 ## libmpv (LGPLv2.1+)
 

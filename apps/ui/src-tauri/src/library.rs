@@ -51,11 +51,12 @@ pub struct Library {
 }
 
 impl Library {
-    /// Library in the per-user data directory (%APPDATA%/LimeWall/library).
+    /// Library in the per-user data directory (%APPDATA%/LimeKit/library).
     pub fn default_location() -> Result<Self, String> {
-        let data = dirs::data_dir().ok_or("no per-user data directory on this system")?;
+        let data = platform::appdata::user_dir()
+            .ok_or("no per-user data directory on this system")?;
         Ok(Self {
-            root: data.join("LimeWall").join("library"),
+            root: data.join("library"),
         })
     }
 
@@ -169,7 +170,7 @@ impl Library {
     }
 
     /// As [`import_web_folder`], with optional name/author overrides. Used by the
-    /// bundled first-run sample so it carries a friendly name and "LimeWall".
+    /// bundled first-run sample so it carries a friendly name and "LimeKit".
     pub(crate) fn import_web_folder_meta(
         &self,
         entry: &Path,
@@ -624,7 +625,7 @@ fn generate_preview(media: &Path, kind: MediaKind, target: &Path) -> Result<(), 
 
 fn ffmpeg_command() -> Result<Command, String> {
     let ffmpeg = ffmpeg_path().ok_or_else(|| {
-        "ffmpeg not found: run scripts/fetch-ffmpeg.ps1 or set LIMEWALL_FFMPEG".to_owned()
+        "ffmpeg not found: run scripts/fetch-ffmpeg.ps1 or set LIMEKIT_FFMPEG".to_owned()
     })?;
     let mut command = Command::new(ffmpeg);
     #[cfg(windows)]
@@ -657,7 +658,7 @@ pub(crate) fn ffmpeg_path() -> Option<PathBuf> {
         "ffmpeg"
     };
     let mut candidates = Vec::new();
-    if let Ok(explicit) = std::env::var("LIMEWALL_FFMPEG") {
+    if let Ok(explicit) = std::env::var("LIMEKIT_FFMPEG") {
         candidates.push(PathBuf::from(explicit));
     }
     if let Ok(ui_exe) = std::env::current_exe()
@@ -901,11 +902,11 @@ mod tests {
             .import_web_folder_meta(
                 &site.join("index.html"),
                 Some("Аврора — пример".to_owned()),
-                Some("LimeWall".to_owned()),
+                Some("LimeKit".to_owned()),
             )
             .expect("meta import");
         assert_eq!(item.name, "Аврора — пример");
-        assert_eq!(item.author.as_deref(), Some("LimeWall"));
+        assert_eq!(item.author.as_deref(), Some("LimeKit"));
         assert_eq!(item.kind, MediaKind::Web);
     }
 }

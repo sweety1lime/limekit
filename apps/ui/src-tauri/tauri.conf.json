@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LimeWall",
-  "version": "0.1.0-beta",
-  "identifier": "com.limewall.ui",
+  "productName": "LimeKit",
+  "version": "0.2.0",
+  "identifier": "com.twofame.limekit",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "LimeWall",
+        "title": "LimeKit",
         "width": 1200,
         "height": 800,
         "minWidth": 900,

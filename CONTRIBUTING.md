@@ -1,4 +1,4 @@
-# Contributing to LimeWall
+# Contributing to LimeKit
 
 Thanks for helping with the beta! (Русские пометки — курсивом.)
 

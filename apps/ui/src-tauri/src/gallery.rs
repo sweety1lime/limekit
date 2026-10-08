@@ -20,13 +20,13 @@ use crate::library;
 
 /// Where the catalog lives. Overridable for local testing.
 const CATALOG_URL: &str =
-    "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/catalog.json";
+    "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/catalog.json";
 /// Where the revocation list lives. Overridable for local testing.
 const REVOCATION_URL: &str =
-    "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/revocation.json";
+    "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/revocation.json";
 /// Detached Ed25519 signature over the exact bytes of `catalog.json`.
 const SIGNATURE_URL: &str =
-    "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/catalog.json.sig";
+    "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/catalog.json.sig";
 /// Catalogs above this are rejected as hostile.
 const MAX_CATALOG_BYTES: u64 = 4 * 1024 * 1024;
 /// The revocation list is tiny; anything larger is bogus.
@@ -92,15 +92,15 @@ pub struct CatalogView {
 }
 
 fn catalog_url() -> String {
-    std::env::var("LIMEWALL_CATALOG_URL").unwrap_or_else(|_| CATALOG_URL.to_owned())
+    std::env::var("LIMEKIT_CATALOG_URL").unwrap_or_else(|_| CATALOG_URL.to_owned())
 }
 
 fn revocation_url() -> String {
-    std::env::var("LIMEWALL_REVOCATION_URL").unwrap_or_else(|_| REVOCATION_URL.to_owned())
+    std::env::var("LIMEKIT_REVOCATION_URL").unwrap_or_else(|_| REVOCATION_URL.to_owned())
 }
 
 fn signature_url() -> String {
-    std::env::var("LIMEWALL_CATALOG_SIG_URL").unwrap_or_else(|_| SIGNATURE_URL.to_owned())
+    std::env::var("LIMEKIT_CATALOG_SIG_URL").unwrap_or_else(|_| SIGNATURE_URL.to_owned())
 }
 
 /// The configured signing key, or `None` when signing is not enabled. The file
@@ -332,7 +332,7 @@ pub async fn gallery_download(pack: GalleryPack) -> Result<library::LibraryItem,
         }
         // Import goes through the same validated `.wpk` path as a local import.
         let temp =
-            std::env::temp_dir().join(format!("limewall-gallery-{}.wpk", sanitize(&pack.id)));
+            std::env::temp_dir().join(format!("limekit-gallery-{}.wpk", sanitize(&pack.id)));
         std::fs::write(&temp, &bytes).map_err(|error| error.to_string())?;
         let result = library::Library::default_location().and_then(|lib| lib.import(&temp));
         let _ = std::fs::remove_file(&temp);
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn only_github_urls_are_allowed() {
         assert!(is_allowed_url(
-            "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/catalog.json"
+            "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/catalog.json"
         ));
         assert!(is_allowed_url(
             "https://github.com/x/y/releases/download/v1/a.wpk"
@@ -484,7 +484,7 @@ mod tests {
         assert!(parse_pubkey(&b64.encode([0u8; 16])).is_none());
         // A real 32-byte key after a comment parses back to its bytes.
         let key = hex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
-        let file = format!("# LimeWall gallery key\n{}\n", b64.encode(&key));
+        let file = format!("# LimeKit gallery key\n{}\n", b64.encode(&key));
         assert_eq!(parse_pubkey(&file), Some(key));
     }
 

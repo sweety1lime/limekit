@@ -132,6 +132,7 @@ mod watcher_win32;
 #[cfg(windows)]
 mod win32;
 
+pub mod appdata;
 pub mod resources;
 pub mod tray;
 pub mod watcher;

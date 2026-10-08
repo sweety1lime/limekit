@@ -9,7 +9,7 @@ use renderer::{daemon, playback};
 use playback::Quality;
 
 #[derive(Parser)]
-#[command(name = "renderer", about = "LimeWall wallpaper renderer", version)]
+#[command(name = "renderer", about = "LimeKit wallpaper renderer", version)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -261,6 +261,12 @@ fn main() -> anyhow::Result<()> {
     // Harden the process before loading libmpv / WebView2 (see
     // docs/research/renderer-sandbox.md). Best-effort, no-op off Windows.
     platform::harden_process();
+    // Before any subcommand can create the data directory and strand the
+    // pre-rename library. Cheap and idempotent once migrated.
+    let migration = platform::appdata::migrate_user_data();
+    if !matches!(migration, platform::appdata::Migration::NothingToDo) {
+        println!("data directory: {migration}");
+    }
     let cli = Cli::parse();
     match cli.command {
         Command::TestSurface { monitor, color } => test_surface(monitor, color),
@@ -486,7 +492,7 @@ fn print_catalog_entry(
     filename: &str,
 ) {
     println!(
-        "{{\n  \"id\": \"{id}\",\n  \"name\": \"{name}\",\n  \"author\": \"{author}\",\n  \"type\": \"{kind}\",\n  \"license\": \"{license}\",\n  \"sha256\": \"{sha}\",\n  \"size\": {size},\n  \"download_url\": \"https://github.com/sweety1lime/LimeWall-Gallery/releases/download/{id}/{filename}\",\n  \"tags\": []\n}}"
+        "{{\n  \"id\": \"{id}\",\n  \"name\": \"{name}\",\n  \"author\": \"{author}\",\n  \"type\": \"{kind}\",\n  \"license\": \"{license}\",\n  \"sha256\": \"{sha}\",\n  \"size\": {size},\n  \"download_url\": \"https://github.com/sweety1lime/limekit/releases/download/{id}/{filename}\",\n  \"tags\": []\n}}"
     );
 }
 
@@ -530,7 +536,7 @@ fn ffmpeg_path() -> Option<PathBuf> {
         "ffmpeg"
     };
     let mut candidates = Vec::new();
-    if let Ok(explicit) = std::env::var("LIMEWALL_FFMPEG") {
+    if let Ok(explicit) = std::env::var("LIMEKIT_FFMPEG") {
         candidates.push(PathBuf::from(explicit));
     }
     if let Ok(current) = std::env::current_exe()
@@ -551,7 +557,7 @@ fn ffmpeg_path() -> Option<PathBuf> {
 /// needs).
 fn reencode_video(input: &Path, output: &Path) -> anyhow::Result<()> {
     let ffmpeg = ffmpeg_path()
-        .context("ffmpeg not found (set LIMEWALL_FFMPEG or run scripts/fetch-ffmpeg.ps1)")?;
+        .context("ffmpeg not found (set LIMEKIT_FFMPEG or run scripts/fetch-ffmpeg.ps1)")?;
     let status = std::process::Command::new(&ffmpeg)
         .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
         .arg(input)

@@ -293,7 +293,7 @@ async fn import_bundled_sample() -> Result<library::LibraryItem, String> {
         library::Library::default_location()?.import_web_folder_meta(
             &entry,
             Some("Аврора — пример".to_owned()),
-            Some("LimeWall".to_owned()),
+            Some("LimeKit".to_owned()),
         )
     })
     .await
@@ -380,6 +380,13 @@ fn import_packages(app: tauri::AppHandle, packages: Vec<std::path::PathBuf>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before the library, the log or the daemon can create the data directory:
+    // see platform::appdata. Whichever of the UI and the daemon starts first
+    // does the move; the other finds it done.
+    let migration = platform::appdata::migrate_user_data();
+    if !matches!(migration, platform::appdata::Migration::NothingToDo) {
+        eprintln!("data directory: {migration}");
+    }
     tauri::Builder::default()
         // Must come first: a second launch (e.g. double-clicking a .wpk)
         // hands its arguments to the running instance and exits.

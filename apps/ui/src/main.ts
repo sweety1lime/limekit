@@ -1155,8 +1155,8 @@ function renderCard(item: LibraryItem): HTMLElement {
       galleryVerified.has(item.id)
         ? h(
             "div",
-            { class: "card-author verified", title: "Скачано из каталога LimeWall" },
-            `✓ из каталога · ${item.author ?? "LimeWall"}`,
+            { class: "card-author verified", title: "Скачано из каталога LimeKit" },
+            `✓ из каталога · ${item.author ?? "LimeKit"}`,
           )
         : h("div", { class: "card-author" }, item.author ?? "локально"),
     ),
@@ -1401,7 +1401,7 @@ async function runDiagnostics() {
 async function copyDiagReport() {
   if (!diagReport) return;
   const lines = [
-    `LimeWall диагностика · UI ${diagReport.ui_version}`,
+    `LimeKit диагностика · UI ${diagReport.ui_version}`,
     "",
     ...diagReport.checks.map(
       (c) => `[${c.status.toUpperCase()}] ${DIAG_LABELS[c.id] ?? c.id}: ${c.detail}`,
@@ -1570,7 +1570,7 @@ function toggleAutostart() {
   renderSettings();
   void call<string>("set_autostart", { enabled: next })
     .then(() =>
-      report(next ? "LimeWall будет запускаться вместе с Windows" : "Автозапуск выключен"),
+      report(next ? "LimeKit будет запускаться вместе с Windows" : "Автозапуск выключен"),
     )
     .catch(() => {
       autostart = !next;
@@ -1596,7 +1596,7 @@ async function confirmCodeWallpaper(name: string, kind: string): Promise<boolean
   const label = kind === "model3d" ? "3D" : "веб";
   return await ask(
     `«${name}» — интерактивные ${label}-обои: они запускают собственный код на вашем рабочем столе.\n\n` +
-      "Устанавливайте такие обои только из доверённых источников. Выход в интернет для них заблокирован LimeWall.\n\n" +
+      "Устанавливайте такие обои только из доверённых источников. Выход в интернет для них заблокирован LimeKit.\n\n" +
       "Добавить в библиотеку?",
     { title: "Обои с исполняемым кодом", kind: "warning", okLabel: "Добавить", cancelLabel: "Отмена" },
   );
@@ -1646,7 +1646,7 @@ async function importDialog() {
     multiple: true,
     filters: [
       {
-        name: "Видео, картинки, веб и пакеты LimeWall",
+        name: "Видео, картинки, веб и пакеты LimeKit",
         extensions: [
           "mp4", "mkv", "webm", "mov", "avi", "m4v",
           "gif", "png", "jpg", "jpeg", "bmp", "webp",
@@ -1662,7 +1662,7 @@ async function importDialog() {
 async function exportLibraryItem(item: LibraryItem) {
   const target = await save({
     defaultPath: `${item.name}.wpk`,
-    filters: [{ name: "Пакет LimeWall", extensions: ["wpk"] }],
+    filters: [{ name: "Пакет LimeKit", extensions: ["wpk"] }],
   });
   if (typeof target !== "string") return;
   await call<void>("library_export", { id: item.id, target });

@@ -57,8 +57,8 @@ const WATCHDOG_INTERVAL_MS: u32 = 1000;
 const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(2);
 const DEFAULT_COLOR: [u8; 3] = [0, 0, 0];
 
-const CONTROL_CLASS: windows::core::PCWSTR = w!("LimeWallControl");
-const SURFACE_CLASS: windows::core::PCWSTR = w!("LimeWallSurface");
+const CONTROL_CLASS: windows::core::PCWSTR = w!("LimeKitControl");
+const SURFACE_CLASS: windows::core::PCWSTR = w!("LimeKitSurface");
 
 fn hwnd(value: isize) -> HWND {
     HWND(value as *mut core::ffi::c_void)
@@ -405,7 +405,7 @@ fn init_worker() -> Result<isize> {
         CreateWindowExW(
             WINDOW_EX_STYLE(0),
             CONTROL_CLASS,
-            w!("LimeWall control"),
+            w!("LimeKit control"),
             WINDOW_STYLE(0),
             0,
             0,
@@ -1048,7 +1048,7 @@ fn create_toplevel_surface_window(bounds: Rect) -> Result<HWND> {
         CreateWindowExW(
             WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
             SURFACE_CLASS,
-            w!("LimeWall surface"),
+            w!("LimeKit surface"),
             WS_POPUP,
             bounds.x,
             bounds.y,
@@ -1100,7 +1100,7 @@ fn create_surface_window(
         CreateWindowExW(
             WS_EX_NOACTIVATE,
             SURFACE_CLASS,
-            w!("LimeWall surface"),
+            w!("LimeKit surface"),
             WS_CHILD,
             point.x,
             point.y,
@@ -1313,7 +1313,7 @@ mod tests {
 
     #[test]
     fn served_assets_carry_the_containment_csp() {
-        let dir = std::env::temp_dir().join(format!("limewall-csp-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("limekit-csp-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("temp dir");
         std::fs::write(dir.join("index.html"), b"<html></html>").expect("write html");
 

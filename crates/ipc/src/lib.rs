@@ -1,4 +1,4 @@
-//! Versioned JSON protocol and bounded framing shared by LimeWall processes.
+//! Versioned JSON protocol and bounded framing shared by LimeKit processes.
 //!
 //! Transport is deliberately independent from Tauri, libmpv and the platform
 //! backend. Phase 2 uses these frames over `interprocess` local sockets.

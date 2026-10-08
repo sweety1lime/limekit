@@ -1,4 +1,4 @@
-// Validates gallery/catalog.json for the LimeWall community gallery.
+// Validates gallery/catalog.json for the LimeKit community gallery.
 // Runs in CI on any PR touching gallery/ (see .github/workflows/gallery-validate.yml)
 // and can be run locally: `node gallery/validate.mjs`.
 

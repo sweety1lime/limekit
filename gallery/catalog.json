@@ -4,13 +4,13 @@
     {
       "id": "aurora-drift",
       "name": "Aurora Drift",
-      "author": "LimeWall",
+      "author": "LimeKit",
       "type": "video",
       "license": "CC0-1.0",
       "sha256": "ad99189f6f132fb431236f542a659aa4d109872d346fca8511acc28f249b7301",
       "size": 93641,
-      "preview": "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/packs/aurora-drift/preview.jpg",
-      "download_url": "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/packs/aurora-drift/aurora-drift.wpk",
+      "preview": "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/packs/aurora-drift/preview.jpg",
+      "download_url": "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/packs/aurora-drift/aurora-drift.wpk",
       "tags": [
         "abstract",
         "green",
@@ -25,8 +25,8 @@
       "license": "CC0-1.0",
       "sha256": "eb0a53b79bd973e65cc17f08ec218445e00d2c1d0d8cdd537429cea8e07512a6",
       "size": 406061,
-      "preview": "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/packs/ember-haze/preview.jpg",
-      "download_url": "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/packs/ember-haze/ember-haze.wpk",
+      "preview": "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/packs/ember-haze/preview.jpg",
+      "download_url": "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/packs/ember-haze/ember-haze.wpk",
       "tags": [
         "abstract",
         "warm",
@@ -41,8 +41,8 @@
       "license": "CC0-1.0",
       "sha256": "65ad810c8ffe2e299275eeded52d2a17365e017e0d0283e7a32ef625e2ca3dad",
       "size": 345987,
-      "preview": "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/packs/nebula-drift/preview.jpg",
-      "download_url": "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery/packs/nebula-drift/nebula-drift.wpk",
+      "preview": "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/packs/nebula-drift/preview.jpg",
+      "download_url": "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery/packs/nebula-drift/nebula-drift.wpk",
       "tags": [
         "abstract",
         "blue",

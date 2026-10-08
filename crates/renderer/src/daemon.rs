@@ -26,13 +26,13 @@ const MAX_CONNECTIONS: usize = 16;
 const STATE_VERSION: u32 = 1;
 
 /// Name of the Run-key value used for autostart.
-const AUTOSTART_APP: &str = "LimeWall";
+const AUTOSTART_APP: &str = "LimeKit";
 
 /// Windowless daemon binary, the one autostart must launch.
 const DAEMON_EXE: &str = if cfg!(windows) {
-    "limewall-daemon.exe"
+    "limekit-daemon.exe"
 } else {
-    "limewall-daemon"
+    "limekit-daemon"
 };
 
 /// The CLI binary, which serves the daemon too — but with a console attached.
@@ -134,7 +134,7 @@ pub fn run(endpoint: Option<&str>, state_path: Option<&Path>) -> anyhow::Result<
     // The tray belongs to the daemon so it works while the UI is closed.
     // Headless operation (e.g. CI) is fine — just log and continue.
     let message_tx_watcher = message_tx.clone();
-    let tray = match platform::tray::spawn("LimeWall", move |event| {
+    let tray = match platform::tray::spawn("LimeKit", move |event| {
         let _ = message_tx.send(Message::Tray(event));
     }) {
         Ok(guard) => Some(guard),
@@ -241,10 +241,10 @@ enum Message {
     CpuSample(f32),
 }
 
-/// %APPDATA%/LimeWall/wallpapers.json (shared convention with the UI library
+/// %APPDATA%/LimeKit/wallpapers.json (shared convention with the UI library
 /// living next to it).
 fn default_state_path() -> Option<PathBuf> {
-    Some(dirs::data_dir()?.join("LimeWall").join("wallpapers.json"))
+    Some(platform::appdata::user_dir()?.join("wallpapers.json"))
 }
 
 /// One decoded request plus the channel its response must go back through.
@@ -1250,10 +1250,10 @@ impl DaemonState {
     fn tray_tooltip(&self, percent: f32) -> String {
         let count = self.sessions.len();
         if count == 0 {
-            "LimeWall — обои не запущены".to_string()
+            "LimeKit — обои не запущены".to_string()
         } else {
             format!(
-                "LimeWall — обоев: {count} · CPU: {}%",
+                "LimeKit — обоев: {count} · CPU: {}%",
                 percent.round() as i64
             )
         }
@@ -1594,14 +1594,14 @@ fn pause_reason(user: bool, global: bool, fullscreen: bool, overbudget: bool) ->
 fn spawn_ui() -> Result<(), String> {
     let exe_name = if cfg!(windows) { "ui.exe" } else { "ui" };
     let mut candidates = Vec::new();
-    if let Ok(explicit) = std::env::var("LIMEWALL_UI") {
+    if let Ok(explicit) = std::env::var("LIMEKIT_UI") {
         candidates.push(PathBuf::from(explicit));
     }
     if let Ok(renderer) = std::env::current_exe()
         && let Some(dir) = renderer.parent()
     {
         candidates.push(dir.join(exe_name));
-        candidates.push(dir.join("LimeWall.exe"));
+        candidates.push(dir.join("LimeKit.exe"));
         // Development layout: target/debug next to the UI workspace build.
         candidates.push(
             dir.join("../../apps/ui/src-tauri/target/debug")
@@ -1611,7 +1611,7 @@ fn spawn_ui() -> Result<(), String> {
     let ui = candidates
         .into_iter()
         .find(|path| path.is_file())
-        .ok_or("UI executable not found (set LIMEWALL_UI)")?;
+        .ok_or("UI executable not found (set LIMEKIT_UI)")?;
     let mut command = std::process::Command::new(&ui);
     command
         .stdin(std::process::Stdio::null())
@@ -1745,7 +1745,7 @@ mod tests {
 
     #[test]
     fn console_autostart_of_our_own_install_is_migrated() {
-        let dir = PathBuf::from(r"C:\Program Files\LimeWall");
+        let dir = PathBuf::from(r"C:\Program Files\LimeKit");
         let exe = dir.join(DAEMON_EXE);
         let old = format!("\"{}\" serve", dir.join(RENDERER_EXE).display());
         assert!(should_migrate_autostart(&old, &exe));
@@ -1757,8 +1757,8 @@ mod tests {
     fn autostart_of_a_vanished_install_is_taken_over() {
         // The tester unpacked the new build elsewhere and dropped the old
         // folder: that registration starts nothing, so it is ours to fix.
-        let exe = PathBuf::from(r"C:\Portable\LimeWall-new").join(DAEMON_EXE);
-        let gone = r#""C:\Portable\LimeWall-old\renderer.exe" serve"#;
+        let exe = PathBuf::from(r"C:\Portable\LimeKit-new").join(DAEMON_EXE);
+        let gone = r#""C:\Portable\LimeKit-old\renderer.exe" serve"#;
         assert!(should_migrate_autostart(gone, &exe));
     }
 
@@ -1767,14 +1767,14 @@ mod tests {
         // A copy whose files still exist keeps owning its registration; the
         // test binary stands in for one.
         let live = std::env::current_exe().expect("test binary path");
-        let exe = PathBuf::from(r"C:\Program Files\LimeWall").join(DAEMON_EXE);
+        let exe = PathBuf::from(r"C:\Program Files\LimeKit").join(DAEMON_EXE);
         let other = format!("\"{}\" serve", live.display());
         assert!(!should_migrate_autostart(&other, &exe));
     }
 
     #[test]
     fn already_migrated_autostart_is_not_touched() {
-        let exe = PathBuf::from(r"C:\Program Files\LimeWall").join(DAEMON_EXE);
+        let exe = PathBuf::from(r"C:\Program Files\LimeKit").join(DAEMON_EXE);
         // The windowless daemon takes no arguments: not a `serve` command.
         let migrated = format!("\"{}\"", exe.display());
         assert!(!should_migrate_autostart(&migrated, &exe));

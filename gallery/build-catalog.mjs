@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 
 const PACKS_DIR = fileURLToPath(new URL("./packs/", import.meta.url));
 const CATALOG = fileURLToPath(new URL("./catalog.json", import.meta.url));
-const RAW = "https://raw.githubusercontent.com/sweety1lime/LimeWall-Gallery/master/gallery";
+const RAW = "https://raw.githubusercontent.com/sweety1lime/limekit/master/gallery";
 
 function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");

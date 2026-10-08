@@ -11,7 +11,7 @@ static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Endpoint the UI talks to; overridable for tests and parallel setups.
 pub fn endpoint() -> String {
-    std::env::var("LIMEWALL_ENDPOINT").unwrap_or_else(|_| ipc::default_endpoint())
+    std::env::var("LIMEKIT_ENDPOINT").unwrap_or_else(|_| ipc::default_endpoint())
 }
 
 /// Sends one request and unwraps the protocol envelope.
@@ -61,7 +61,7 @@ pub fn ensure_daemon(endpoint: &str) -> Result<String, String> {
         return Ok(daemon_version);
     }
     let renderer = renderer_path().ok_or_else(|| {
-        "renderer executable not found: set LIMEWALL_RENDERER or build the workspace".to_owned()
+        "renderer executable not found: set LIMEKIT_RENDERER or build the workspace".to_owned()
     })?;
     spawn_detached(&renderer, endpoint)
         .map_err(|error| format!("failed to start {}: {error}", renderer.display()))?;
@@ -87,7 +87,7 @@ pub(crate) fn renderer_path() -> Option<PathBuf> {
         "renderer"
     };
     let mut candidates = Vec::new();
-    if let Ok(explicit) = std::env::var("LIMEWALL_RENDERER") {
+    if let Ok(explicit) = std::env::var("LIMEKIT_RENDERER") {
         candidates.push(PathBuf::from(explicit));
     }
     if let Ok(ui_exe) = std::env::current_exe()
@@ -113,7 +113,7 @@ fn spawn_detached(renderer: &std::path::Path, endpoint: &str) -> std::io::Result
         .arg(endpoint)
         .stdin(std::process::Stdio::null());
     // Parallel setups and tests must not touch the real wallpaper state.
-    if let Ok(state) = std::env::var("LIMEWALL_STATE") {
+    if let Ok(state) = std::env::var("LIMEKIT_STATE") {
         command.arg("--state").arg(state);
     }
     match daemon_log_file() {
@@ -138,7 +138,7 @@ fn spawn_detached(renderer: &std::path::Path, endpoint: &str) -> std::io::Result
 }
 
 fn daemon_log_file() -> Option<std::fs::File> {
-    let dir = dirs::data_dir()?.join("LimeWall");
+    let dir = platform::appdata::user_dir()?;
     std::fs::create_dir_all(&dir).ok()?;
     std::fs::File::create(dir.join("daemon.log")).ok()
 }
@@ -157,14 +157,14 @@ mod tests {
         };
         // Keep the spawned daemon away from the user's wallpaper state.
         let state = std::env::temp_dir().join(format!(
-            "limewall-ui-test-state-{}.json",
+            "limekit-ui-test-state-{}.json",
             std::process::id()
         ));
         // SAFETY: no other thread in this test binary touches this variable.
         unsafe {
-            std::env::set_var("LIMEWALL_STATE", &state);
+            std::env::set_var("LIMEKIT_STATE", &state);
         }
-        let endpoint = format!("limewall-ui-test-{}.sock", std::process::id());
+        let endpoint = format!("limekit-ui-test-{}.sock", std::process::id());
 
         let version = ensure_daemon(&endpoint).expect("daemon should start and answer");
         assert!(!version.is_empty());

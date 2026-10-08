@@ -1,9 +1,9 @@
-# Builds a portable LimeWall folder: the UI, the renderer daemon and their
-# runtime dependencies laid out side by side, so LimeWall.exe runs without a
-# dev server. Output: dist/LimeWall/.
+# Builds a portable LimeKit folder: the UI, the renderer daemon and their
+# runtime dependencies laid out side by side, so LimeKit.exe runs without a
+# dev server. Output: dist/LimeKit/.
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$out = Join-Path $repoRoot "dist\LimeWall"
+$out = Join-Path $repoRoot "dist\LimeKit"
 
 # Runtime binaries must be fetched first (kept out of git).
 $libmpv = Join-Path $repoRoot "third_party\mpv\unpacked\libmpv-2.dll"
@@ -33,10 +33,10 @@ Pop-Location
 
 $renderer = Join-Path $repoRoot "target\release\renderer.exe"
 # Windowless daemon: what autostart launches, so no console window at logon.
-$daemon = Join-Path $repoRoot "target\release\limewall-daemon.exe"
+$daemon = Join-Path $repoRoot "target\release\limekit-daemon.exe"
 $uiRelease = Join-Path $repoRoot "apps\ui\src-tauri\target\release"
 $ui = Get-ChildItem $uiRelease -Filter "*.exe" |
-    Where-Object { $_.Name -in @("LimeWall.exe", "ui.exe") } |
+    Where-Object { $_.Name -in @("LimeKit.exe", "ui.exe") } |
     Select-Object -First 1
 if (-not $ui) { throw "UI executable not found in $uiRelease" }
 
@@ -44,9 +44,9 @@ if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Force $out | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $out "shaders\anime4k") | Out-Null
 
-Copy-Item $ui.FullName (Join-Path $out "LimeWall.exe") -Force
+Copy-Item $ui.FullName (Join-Path $out "LimeKit.exe") -Force
 Copy-Item $renderer (Join-Path $out "renderer.exe") -Force
-Copy-Item $daemon (Join-Path $out "limewall-daemon.exe") -Force
+Copy-Item $daemon (Join-Path $out "limekit-daemon.exe") -Force
 Copy-Item $libmpv $out -Force
 Copy-Item $ffmpeg $out -Force
 Copy-Item (Join-Path $repoRoot "assets\shaders\FSR.glsl") (Join-Path $out "shaders") -Force
@@ -72,4 +72,4 @@ Get-ChildItem $out -Recurse -File | ForEach-Object {
     "  {0,-22} {1,8:N0} bytes" -f $_.FullName.Substring($out.Length + 1), $_.Length
 }
 Write-Host ""
-Write-Host "run it: `"$out\LimeWall.exe`""
+Write-Host "run it: `"$out\LimeKit.exe`""

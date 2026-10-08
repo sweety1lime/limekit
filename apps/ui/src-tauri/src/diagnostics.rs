@@ -210,7 +210,7 @@ fn libmpv_path() -> Option<PathBuf> {
 }
 
 fn daemon_log_path() -> Option<PathBuf> {
-    Some(dirs::data_dir()?.join("LimeWall").join("daemon.log"))
+    Some(platform::appdata::user_dir()?.join("daemon.log"))
 }
 
 /// Last `max_lines` lines of the file, reading at most `max_bytes` from the end
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn read_log_tail_handles_missing_file_and_bounds_bytes() {
-        let dir = std::env::temp_dir().join(format!("limewall-diag-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("limekit-diag-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let missing = dir.join("nope.log");
         assert_eq!(read_log_tail(&missing, 1024, 10), "");

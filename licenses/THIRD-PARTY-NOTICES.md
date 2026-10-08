@@ -1,6 +1,6 @@
-# Third-party notices — LimeWall
+# Third-party notices — LimeKit
 
-LimeWall (by 2fame) is distributed with the third-party components listed below.
+LimeKit (by 2fame) is distributed with the third-party components listed below.
 This notice satisfies the attribution and source-availability obligations of
 their licenses. A full inventory of source-only dependencies (Rust crates, npm
 packages) with their permissive licenses is in `docs/third-party.md`.
@@ -15,7 +15,7 @@ end of this file.
 ## mpv — `libmpv-2.dll`  (LGPL-2.1-or-later)
 
 - **Use:** the wallpaper renderer plays video through libmpv. The DLL is loaded
-  at **runtime** via `libloading`; LimeWall's own code declares its own FFI and
+  at **runtime** via `libloading`; LimeKit's own code declares its own FFI and
   does not link the mpv headers. This is the "shared library mechanism" form of
   use permitted by the LGPL.
 - **Composition:** this build statically links FFmpeg configured as LGPL with
@@ -28,14 +28,14 @@ end of this file.
 - **Upstream source:** <https://mpv.io> · <https://github.com/mpv-player/mpv>.
 - **Replacing it (LGPL relinking right):** because libmpv is a standalone DLL
   loaded at runtime, you may substitute your own build of a client-API-compatible
-  `libmpv-2.dll` in the install folder and LimeWall will use it — no relinking of
-  LimeWall is required.
+  `libmpv-2.dll` in the install folder and LimeKit will use it — no relinking of
+  LimeKit is required.
 
 ## FFmpeg — `ffmpeg.exe`  (LGPL-3.0)
 
 - **Use:** the library import pipeline runs `ffmpeg.exe` as a **separate
   process** (GIF → mp4 conversion, JPEG previews). Nothing from FFmpeg is linked
-  into LimeWall.
+  into LimeKit.
 - **Exact build:** `zhongfly/mpv-winbuild` release `2026-07-10-e5486b96d7`,
   artifact `ffmpeg-lgpl-x86_64-git-35f8f4bdc.7z`, configured with
   `--enable-version3` and **without** any GPL components. Reproduce with

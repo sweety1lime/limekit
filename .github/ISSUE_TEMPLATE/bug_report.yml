@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Спасибо, что помогаешь с бетой! Пожалуйста, приложи **отчёт диагностики** —
-        без него баг почти невозможно найти. Он же содержит версию LimeWall.
+        без него баг почти невозможно найти. Он же содержит версию LimeKit.
   - type: textarea
     id: what
     attributes:
@@ -22,7 +22,7 @@ body:
       label: "Как повторить"
       description: "Шаги по порядку — так баг находится быстрее."
       placeholder: |
-        1. Открыл LimeWall
+        1. Открыл LimeKit
         2. Библиотека → «Выбрать файлы» → video.mp4
         3. Навёл на монитор 2
         4. ...
@@ -61,7 +61,7 @@ body:
     id: log
     attributes:
       label: "Лог (по желанию)"
-      description: "Открой в блокноте %APPDATA%\\LimeWall\\daemon.log и вставь последние строки."
+      description: "Открой в блокноте %APPDATA%\\LimeKit\\daemon.log и вставь последние строки."
       render: text
     validations:
       required: false
