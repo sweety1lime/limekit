@@ -25,6 +25,12 @@ pub const APP_DIR: &str = "LimeKit";
 /// Directory names earlier releases used, newest first.
 const LEGACY_APP_DIRS: &[&str] = &["LimeWall"];
 
+/// Points the data directory somewhere else, for tests and side-by-side
+/// development builds. While it is set nothing is migrated: a directory picked
+/// by hand is not where old data should be pulled into, and a test run must
+/// never move the developer's real library or stop their running daemon.
+pub const DATA_DIR_ENV: &str = "LIMEKIT_DATA_DIR";
+
 /// A move that fails is retried this many times in all, [`RETRY_DELAY`] apart:
 /// an old daemon that was just asked to quit may still be closing its log.
 const MOVE_ATTEMPTS: u32 = 5;
@@ -75,9 +81,19 @@ pub fn data_dir(base: &Path) -> PathBuf {
     base.join(APP_DIR)
 }
 
-/// Current per-user data directory, e.g. `%APPDATA%\LimeKit`.
+/// Current per-user data directory, e.g. `%APPDATA%\LimeKit`, or
+/// [`DATA_DIR_ENV`] when that is set.
 pub fn user_dir() -> Option<PathBuf> {
+    if let Some(dir) = override_dir() {
+        return Some(dir);
+    }
     Some(data_dir(&dirs::data_dir()?))
+}
+
+fn override_dir() -> Option<PathBuf> {
+    std::env::var_os(DATA_DIR_ENV)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
 }
 
 /// Whether data from an earlier release is still waiting to be moved.
@@ -86,7 +102,7 @@ pub fn user_dir() -> Option<PathBuf> {
 /// round trip, and the UI to hold off seeding a fresh library with its sample
 /// wallpaper — which would make the half-created directory look real.
 pub fn migration_pending() -> bool {
-    dirs::data_dir().is_some_and(|base| pending_in(&base))
+    override_dir().is_none() && dirs::data_dir().is_some_and(|base| pending_in(&base))
 }
 
 /// Moves an earlier release's data into [`APP_DIR`] under the per-user data
@@ -94,6 +110,9 @@ pub fn migration_pending() -> bool {
 ///
 /// Call this before touching anything inside [`user_dir`].
 pub fn migrate_user_data() -> Migration {
+    if override_dir().is_some() {
+        return Migration::NothingToDo;
+    }
     let Some(base) = dirs::data_dir() else {
         return Migration::NothingToDo;
     };

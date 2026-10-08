@@ -170,7 +170,7 @@ impl Library {
     }
 
     /// As [`import_web_folder`], with optional name/author overrides. Used by the
-    /// bundled first-run sample so it carries a friendly name and "LimeKit".
+    /// bundled first-run sample so it carries a friendly name and "2fame".
     pub(crate) fn import_web_folder_meta(
         &self,
         entry: &Path,
@@ -902,11 +902,11 @@ mod tests {
             .import_web_folder_meta(
                 &site.join("index.html"),
                 Some("Аврора — пример".to_owned()),
-                Some("LimeKit".to_owned()),
+                Some("2fame".to_owned()),
             )
             .expect("meta import");
         assert_eq!(item.name, "Аврора — пример");
-        assert_eq!(item.author.as_deref(), Some("LimeKit"));
+        assert_eq!(item.author.as_deref(), Some("2fame"));
         assert_eq!(item.kind, MediaKind::Web);
     }
 }

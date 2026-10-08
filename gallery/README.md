@@ -7,7 +7,7 @@
 
 - **Только видео и картинки** (`type: video | image`). Интерактивные web/3D-обои
   пока **не принимаются** — их нельзя безопасно проверить автоматически.
-- Пак в формате `.wpk` (см. `crates/wpk`), с корректным `manifest.json`
+- Пак в формате `.limekit` (см. `crates/wpk`), с корректным `manifest.json`
   (`author`, `license`, `version` обязательны).
 - **Права на контент.** Публикуйте только своё или то, что разрешает лицензия.
   Укажите её честно в `license`. Нарушения удаляются (revocation + DMCA GitHub).
@@ -19,16 +19,16 @@
 `raw.githubusercontent` — Release для маленьких паков не нужен. Каталог
 **генерируется** из паков, руками его не редактируют.
 
-1. **Соберите `.wpk`** из видео/картинки сразу в папку пака (команда печатает
+1. **Соберите `.limekit`** из видео/картинки сразу в папку пака (команда печатает
    SHA-256 и размер):
 
    ```
-   cargo run -p renderer -- pack wall.mp4 --reencode --name "Aurora Drift" --author "2fame" --license "CC0-1.0" --id aurora-drift --preview preview.jpg -o gallery/packs/aurora-drift/aurora-drift.wpk
+   cargo run -p renderer -- pack wall.mp4 --reencode --name "Aurora Drift" --author "2fame" --license "CC0-1.0" --id aurora-drift --preview preview.jpg -o gallery/packs/aurora-drift/aurora-drift.limekit
    ```
 
    `--reencode` (для видео) нормализует ролик через ffmpeg — VP9, кап 1920px,
    срез метаданных и звука, — заодно уменьшая размер. (Или экспортом из
-   приложения — кнопка «Поделиться .wpk».)
+   приложения — кнопка «Поделиться .limekit».)
 2. **Положите превью** `gallery/packs/aurora-drift/preview.jpg` (опц.) и теги
    `gallery/packs/aurora-drift/tags.json` — массив строк (опц.).
 3. **Сгенерируйте каталог** — SHA-256 и размер посчитаются сами:
@@ -81,7 +81,7 @@ kill-switch для тех, кто уже скачал:
 2. **Добавьте запись** в `gallery/revocation.json`:
 
    ```json
-   { "id": "<id>", "sha256": "<опц. хэш .wpk>", "reason": "почему" }
+   { "id": "<id>", "sha256": "<опц. хэш .limekit>", "reason": "почему" }
    ```
 
 3. Откройте PR. CI проверит, что отозванного пака больше нет в каталоге.

@@ -300,21 +300,17 @@ async fn import_bundled_sample() -> Result<library::LibraryItem, String> {
         library::Library::default_location()?.import_web_folder_meta(
             &entry,
             Some("Аврора — пример".to_owned()),
-            Some("LimeKit".to_owned()),
+            Some("2fame".to_owned()),
         )
     })
     .await
 }
 
-/// `.wpk` files among command line arguments (double-click / "open with").
+/// Package files among command line arguments (double-click / "open with").
 fn packages_in(args: impl Iterator<Item = std::ffi::OsString>) -> Vec<std::path::PathBuf> {
     args.skip(1)
         .map(std::path::PathBuf::from)
-        .filter(|path| {
-            path.extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case("wpk"))
-                && path.is_file()
-        })
+        .filter(|path| wpk::has_package_extension(path) && path.is_file())
         .collect()
 }
 

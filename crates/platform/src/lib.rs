@@ -232,3 +232,15 @@ pub fn set_autostart(app: &str, command: Option<&str>) -> Result<()> {
         Err(HostError::Unsupported("autostart"))
     }
 }
+
+/// Tells Explorer that file associations changed, so a package's icon and
+/// "Open with" entry show up without signing out. Explorer refreshes its icons
+/// in response, so call it only after something actually changed.
+pub fn notify_associations_changed() {
+    #[cfg(windows)]
+    // SAFETY: SHCNE_ASSOCCHANGED with SHCNF_IDLIST takes no item pointers.
+    unsafe {
+        use windows::Win32::UI::Shell::{SHCNE_ASSOCCHANGED, SHCNF_IDLIST, SHChangeNotify};
+        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None);
+    }
+}

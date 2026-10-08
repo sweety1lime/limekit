@@ -4,6 +4,11 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open, save } from "@tauri-apps/plugin-dialog";
 
+// Package extensions, mirroring wpk::PACK_EXT / wpk::ACCEPTED_EXTS. New files
+// are saved as `.limekit`; `.wpk` from 0.1 still imports.
+const PACK_EXT = "limekit";
+const PACK_EXTS = ["limekit", "wpk"] as const;
+
 // ---------------------------------------------------------------------------
 // types (mirror the Tauri backend; see src-tauri/src/lib.rs & crates/ipc)
 // ---------------------------------------------------------------------------
@@ -653,7 +658,7 @@ function buildEmpty(): HTMLElement {
     h("span", { class: "format-chip" }, "MP4 · MKV · WEBM"),
     h("span", { class: "format-chip" }, "GIF"),
     h("span", { class: "format-chip" }, "PNG · JPG"),
-    h("span", { class: "format-chip accent" }, "HTML · 3D · WPK"),
+    h("span", { class: "format-chip accent" }, "HTML · 3D · .limekit"),
   ];
   return h(
     "div",
@@ -669,7 +674,7 @@ function buildEmpty(): HTMLElement {
         h(
           "div",
           { class: "state-text" },
-          "Видео, GIF, картинка, HTML-страница или 3D-модель. GIF автоматически станет видео. Готовые обои — файлом .wpk.",
+          "Видео, GIF, картинка, HTML-страница или 3D-модель. GIF автоматически станет видео. Готовые обои — файлом .limekit.",
         ),
       ),
       h("div", { class: "format-chips" }, ...formats),
@@ -828,7 +833,7 @@ function buildHeroBottom(item: LibraryItem | undefined): HTMLElement {
       onClick: () => item && void exportLibraryItem(item),
     },
     iconSpan(icons.share),
-    "Поделиться .wpk",
+    `Поделиться .${PACK_EXT}`,
   );
 
   const headrow = h(
@@ -1123,7 +1128,7 @@ function renderCard(item: LibraryItem): HTMLElement {
     {
       class: "card-act share",
       type: "button",
-      title: "Поделиться (.wpk)",
+      title: `Поделиться (.${PACK_EXT})`,
       html: icons.shareSm,
       onClick: (e: Event) => {
         e.stopPropagation();
@@ -1607,15 +1612,15 @@ async function importPaths(paths: string[]) {
     const lower = path.toLowerCase();
     const gif = lower.endsWith(".gif");
     const isHtml = lower.endsWith(".html") || lower.endsWith(".htm");
-    const isWpk = lower.endsWith(".wpk");
+    const isPack = PACK_EXTS.some((ext) => lower.endsWith(`.${ext}`));
 
-    // Code-bearing imports (a bare HTML web wallpaper, or a web/3D .wpk) run JS
+    // Code-bearing imports (a bare HTML web wallpaper, or a web/3D pack) run JS
     // on the desktop — get explicit consent before installing them. Plain media
     // is inert and imports without friction.
     let needsConsent = isHtml;
     let displayName = path.split(/[\\/]/).pop() ?? path;
     let kind = "web";
-    if (isWpk) {
+    if (isPack) {
       try {
         const info = await invoke<PackageInfo>("inspect_package", { path });
         displayName = info.name;
@@ -1650,7 +1655,7 @@ async function importDialog() {
         extensions: [
           "mp4", "mkv", "webm", "mov", "avi", "m4v",
           "gif", "png", "jpg", "jpeg", "bmp", "webp",
-          "html", "htm", "wpk",
+          "html", "htm", ...PACK_EXTS,
         ],
       },
     ],
@@ -1661,8 +1666,8 @@ async function importDialog() {
 
 async function exportLibraryItem(item: LibraryItem) {
   const target = await save({
-    defaultPath: `${item.name}.wpk`,
-    filters: [{ name: "Пакет LimeKit", extensions: ["wpk"] }],
+    defaultPath: `${item.name}.${PACK_EXT}`,
+    filters: [{ name: "Пакет LimeKit", extensions: [...PACK_EXTS] }],
   });
   if (typeof target !== "string") return;
   await call<void>("library_export", { id: item.id, target });
@@ -1701,7 +1706,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape" && settingsOpen) closeSettings();
   });
 
-  // A second app launch (double-clicked .wpk) imports in the backend and
+  // A second app launch (double-clicked pack) imports in the backend and
   // pings us to show the result.
   void listen("library-changed", () => void refreshLibrary());
   // Code-bearing packages are not imported silently — the backend hands them

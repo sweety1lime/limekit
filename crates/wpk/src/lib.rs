@@ -1,7 +1,12 @@
-//! `.wpk` wallpaper package: a zip container holding `manifest.json` plus the
-//! content files. The manifest schema is fixed from format v1 on — author,
-//! license and version are mandatory because the future gallery and paid
-//! packs depend on them.
+//! LimeKit package: a zip container holding `manifest.json` plus the content
+//! files. The manifest schema is fixed from format v1 on — author, license and
+//! version are mandatory because the future gallery and paid packs depend on
+//! them.
+//!
+//! The extension is [`PACK_EXT`]. It was `.wpk` ("wallpaper pack") while the
+//! app was a wallpaper engine; now that packs will also carry themes and
+//! widgets the name no longer fit, so new files are written as `.limekit` and the
+//! old extension stays readable — see [`ACCEPTED_EXTS`].
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -12,6 +17,20 @@ use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
 pub const MANIFEST_NAME: &str = "manifest.json";
+/// Extension written for new packages, without the dot.
+pub const PACK_EXT: &str = "limekit";
+/// Extensions accepted on import, newest first. `wpk` is what packages shipped
+/// as before the LimeKit rename; files already out there keep working.
+pub const ACCEPTED_EXTS: &[&str] = &["limekit", "wpk"];
+
+/// Whether `path` looks like a package this build can open.
+pub fn has_package_extension(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| {
+        ACCEPTED_EXTS
+            .iter()
+            .any(|accepted| ext.eq_ignore_ascii_case(accepted))
+    })
+}
 /// Manifests larger than this are rejected as hostile.
 const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
 /// Zip-bomb guard for single extracted files.

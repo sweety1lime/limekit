@@ -332,7 +332,11 @@ pub async fn gallery_download(pack: GalleryPack) -> Result<library::LibraryItem,
         }
         // Import goes through the same validated `.wpk` path as a local import.
         let temp =
-            std::env::temp_dir().join(format!("limekit-gallery-{}.wpk", sanitize(&pack.id)));
+            std::env::temp_dir().join(format!(
+                "limekit-gallery-{}.{}",
+                sanitize(&pack.id),
+                wpk::PACK_EXT
+            ));
         std::fs::write(&temp, &bytes).map_err(|error| error.to_string())?;
         let result = library::Library::default_location().and_then(|lib| lib.import(&temp));
         let _ = std::fs::remove_file(&temp);

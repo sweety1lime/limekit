@@ -155,14 +155,22 @@ mod tests {
             eprintln!("skipped: renderer executable is not built");
             return;
         };
-        // Keep the spawned daemon away from the user's wallpaper state.
+        // Keep the spawned daemon away from the user's wallpaper state, and
+        // away from their data directory altogether: on startup the daemon
+        // would otherwise migrate a real LimeWall library and stop a running
+        // LimeWall daemon. The variables are inherited by the spawned process.
         let state = std::env::temp_dir().join(format!(
             "limekit-ui-test-state-{}.json",
             std::process::id()
         ));
-        // SAFETY: no other thread in this test binary touches this variable.
+        let data = std::env::temp_dir().join(format!(
+            "limekit-ui-test-data-{}",
+            std::process::id()
+        ));
+        // SAFETY: no other thread in this test binary touches these variables.
         unsafe {
             std::env::set_var("LIMEKIT_STATE", &state);
+            std::env::set_var(platform::appdata::DATA_DIR_ENV, &data);
         }
         let endpoint = format!("limekit-ui-test-{}.sock", std::process::id());
 

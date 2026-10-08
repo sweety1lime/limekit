@@ -1,5 +1,5 @@
 // Regenerates gallery/catalog.json from the packs under gallery/packs/*/.
-// Each pack folder holds one `.wpk` (its manifest supplies name/author/type/
+// Each pack folder holds one `.limekit` (its manifest supplies name/author/type/
 // license/id), an optional `preview.jpg`, and an optional `tags.json` (a string
 // array). SHA-256 and size are computed here, so the catalog is never hand-
 // edited. Run after adding a pack: `node gallery/build-catalog.mjs`.
@@ -20,9 +20,9 @@ function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-/** Reads manifest.json out of a `.wpk` (a zip) using the system `unzip`. */
-function readManifest(wpkPath) {
-  const out = execFileSync("unzip", ["-p", wpkPath, "manifest.json"]);
+/** Reads manifest.json out of a `.limekit` (a zip) using the system `unzip`. */
+function readManifest(packPath) {
+  const out = execFileSync("unzip", ["-p", packPath, "manifest.json"]);
   return JSON.parse(out.toString("utf8"));
 }
 
@@ -32,13 +32,13 @@ for (const id of readdirSync(PACKS_DIR)) {
   if (!statSync(dir).isDirectory()) continue;
 
   const files = readdirSync(dir);
-  const wpk = files.find((f) => f.endsWith(".wpk"));
-  if (!wpk) {
-    console.error(`skip ${id}: no .wpk file`);
+  const pack = files.find((f) => f.endsWith(".limekit"));
+  if (!pack) {
+    console.error(`skip ${id}: no .limekit file`);
     continue;
   }
-  const wpkPath = `${dir}/${wpk}`;
-  const manifest = readManifest(wpkPath);
+  const packPath = `${dir}/${pack}`;
+  const manifest = readManifest(packPath);
 
   const entry = {
     id: manifest.id,
@@ -46,11 +46,11 @@ for (const id of readdirSync(PACKS_DIR)) {
     author: manifest.author,
     type: manifest.type,
     license: manifest.license,
-    sha256: sha256(wpkPath),
-    size: statSync(wpkPath).size,
+    sha256: sha256(packPath),
+    size: statSync(packPath).size,
   };
   if (files.includes("preview.jpg")) entry.preview = `${RAW}/packs/${id}/preview.jpg`;
-  entry.download_url = `${RAW}/packs/${id}/${wpk}`;
+  entry.download_url = `${RAW}/packs/${id}/${pack}`;
   entry.tags = existsSync(`${dir}/tags.json`)
     ? JSON.parse(readFileSync(`${dir}/tags.json`, "utf8"))
     : [];

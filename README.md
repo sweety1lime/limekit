@@ -34,8 +34,8 @@ and glTF 3D models.
   against a real game — the pause lands within a couple of seconds and the CPU
   drops to zero. A separate watchdog also stops any wallpaper that runs the CPU
   hot for too long.
-- `.wpk` packages — export anything from your library as one file, install
-  someone else's with a double-click.
+- `.limekit` packages — export anything from your library as one file, install
+  someone else's with a double-click. Older `.wpk` files from 0.1 still open.
 - A community catalog inside the app; downloads are checksum-verified.
 
 ## Where this is going
