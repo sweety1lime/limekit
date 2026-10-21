@@ -60,8 +60,12 @@ This isn't a list of shortcomings. These are deliberate choices, and most
 Windows customization tools break systems through exactly what's absent here.
 
 - **No code injection into system processes.** Not `explorer.exe`, not
-  `dwm.exe`, nowhere. That's why there are no anti-cheat bans, no black screens
-  after a Windows update, and no Explorer crash loops.
+  `dwm.exe`, nowhere. That takes away the usual reasons for anti-cheat trouble
+  and for Explorer crash loops after a Windows update. It doesn't make LimeKit
+  immune to updates, though: drawing behind the icons relies on an
+  undocumented trick, and in 2024–2025 Microsoft held back the 24H2 upgrade on
+  PCs with wallpaper apps. Details in
+  [the layer behind the icons](docs/research/workerw.md).
 - **No patching of system files.** `System32` stays the way Microsoft shipped
   it. SFC and DISM will find nothing to complain about.
 - **Nothing gets weakened.** Defender, UAC, SmartScreen, Windows Update —
@@ -77,6 +81,21 @@ installing such a package asks for confirmation first. How that works, and what
 I deliberately don't try to detect, is in the
 [security model](docs/research/security-model.md).
 
+## What goes online
+
+No telemetry, no analytics, no crash reports sent anywhere. LimeKit talks to the
+network in two cases, and only to GitHub (`raw.githubusercontent.com`,
+`github.com`, `objects.githubusercontent.com`):
+
+- when you open the **Catalog** tab, to fetch the list of wallpapers and the
+  ones you choose to download;
+- when the window starts, but only if your library has wallpapers from the
+  catalog: it fetches the revocation list so a wallpaper pulled for being
+  harmful gets removed from your machine too.
+
+The diagnostics report in settings is copied to your clipboard when you press
+the button. Where it goes after that is up to you.
+
 ## Install
 
 Windows 10 or 11, 64-bit. Nothing else to install — it's all in the archive.
@@ -89,12 +108,19 @@ Windows 10 or 11, 64-bit. Nothing else to install — it's all in the archive.
 Nothing is written into the system until you turn on autostart yourself with the
 checkbox in settings. To uninstall, delete the folder.
 
+LimeKit has no website and no mirrors. The only place to download it is
+[Releases](https://github.com/sweety1lime/limekit/releases) of this
+repository. Fake download sites for popular Windows tools regularly outrank the
+real ones in search results, so if some site offers "LimeKit download", it isn't
+me.
+
 **About the Windows warning.** Releases aren't signed with a certificate yet, so
 the first launch shows "Windows protected your PC". That's not a sign of a virus
 — it's the absence of a paid certificate, which costs money and isn't available
 everywhere. The SHA-256 of the archive and of the programs inside it are in the release
 notes and in a `SHA256SUMS.txt` next to the archive, so you can check you
-downloaded my build. When signing happens, I'll say so in a release.
+downloaded my build. On Windows 11 with Smart App Control turned on, an unsigned
+build may not start at all. When signing happens, I'll say so in a release.
 
 **Upgrading from LimeWall 0.1.** Just run LimeKit. It asks the old version to
 quit, moves your library and settings from `%APPDATA%\LimeWall` to
@@ -104,23 +130,69 @@ close it from the tray and start LimeKit again.
 
 ## How it's built
 
-If you care about what's behind the button, I keep notes as I go, including the
-options I rejected and why:
-
-- [Security model](docs/research/security-model.md) — why I bet on containment
-  instead of trying to detect hostile content.
-- [The layer behind the icons](docs/research/workerw.md) — how you draw behind
-  desktop icons at all.
-- [Renderer isolation](docs/research/renderer-sandbox.md) — why a full
-  AppContainer didn't fit, and what I do instead.
-- [Community catalog](docs/research/workshop.md) — moderation, signing,
-  revocation.
-- [PLAN.md](PLAN.md) — the roadmap with acceptance criteria per phase.
-
 The architecture in short: two processes. A long-lived daemon owns the wallpaper
 surfaces and playback; the Tauri window is control only, and closing it doesn't
 stop the wallpapers. They talk over local IPC. Everything platform-specific sits
 behind the `WallpaperHost` trait in `crates/platform`.
+
+If you care about what's behind the button, I keep notes, including the options
+I rejected and why. They're in Russian:
+
+- [Architecture](docs/research/architecture.md) — the daemon, the window and
+  the IPC protocol between them.
+- [Security model](docs/research/security-model.md) — why I bet on containment
+  instead of trying to detect hostile content.
+- [The layer behind the icons](docs/research/workerw.md) — how you draw behind
+  desktop icons at all, and what Windows 11 24H2 changed.
+- [Renderer isolation](docs/research/renderer-sandbox.md) — why a full
+  AppContainer didn't fit, and what I do instead.
+- [Community catalog](docs/research/catalog.md) — moderation, checksums,
+  revocation.
+- [Politeness](docs/research/politeness.md) — when and how wallpapers pause.
+
+## Decisions and trade-offs
+
+**Two processes instead of one app.** The wallpapers live in a daemon, and the
+window is a separate program you can close at any time; the tray belongs to the
+daemon too. The price is two processes and a protocol between them that has to
+survive an old window talking to a new daemon.
+
+**An undocumented trick instead of an official API.** Windows has no API for
+drawing behind the desktop icons, so LimeKit uses the same `WorkerW` trick as
+every other wallpaper app, with two search paths (before and after 24H2) and a
+watchdog that re-attaches the window when Explorer rebuilds the desktop. It can
+break with any Windows update, and I can only promise to fix it quickly, not
+that it won't happen.
+
+**My own thin libmpv bindings instead of the `libmpv2` crate.** About 17
+function declarations, loaded at runtime with `libloading`. The renderer builds
+without the dll, and `libmpv-2.dll` stays a separate file you can replace, which
+is what its LGPL license asks for. The price: when mpv's API changes, I update
+the declarations by hand.
+
+**Containment instead of detection.** I don't try to scan wallpapers for
+malware; a determined author would get past any scanner. Instead a web wallpaper
+has no network and no bridge to native code, and a watchdog pauses any wallpaper
+that keeps the CPU busy. The catalog only accepts video and images. The price:
+wallpapers that genuinely need the network (weather, live data) aren't possible.
+
+**Process mitigations instead of a full sandbox.** A process in an AppContainer
+can't attach its window to Explorer's desktop window, so the renderer can't be
+locked down as a whole. It runs with the mitigations that don't break libmpv and
+WebView2, plus Control Flow Guard. Moving the video decoder into a separate
+sandboxed process is designed, but it's weeks of work and isn't done.
+
+**GitHub pull requests instead of a server for the catalog.** No backend to pay
+for or keep alive, and every pack gets reviewed before anyone sees it. The
+price: a new wallpaper appears only after I've reviewed it.
+
+**A portable zip instead of an installer, no auto-update.** Nothing is written
+to the system until you turn on autostart, and removing LimeKit means deleting a
+folder. The price: the unsigned build gets a SmartScreen warning, and updates
+are manual.
+
+**No telemetry.** I don't know how many people use LimeKit or what crashes for
+them. Bugs reach me only through issues with the diagnostics report attached.
 
 ## Build from source
 

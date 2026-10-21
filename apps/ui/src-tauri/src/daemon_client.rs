@@ -1,7 +1,7 @@
 //! Finds or starts the renderer daemon and forwards IPC requests to it.
 //!
 //! The daemon owns the wallpapers and must outlive this UI process, so it is
-//! spawned fully detached (docs/research/phase2-architecture.md).
+//! spawned fully detached (docs/research/architecture.md).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};

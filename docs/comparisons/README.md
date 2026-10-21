@@ -1,8 +1,8 @@
-# Phase 1 quality comparisons
+# Upscaling comparisons
 
 This directory stores screenshots made from the same frame and monitor for the
-`eco`, `max` and optional Anime4K profiles. Use a real 1280x720 source and a
-2560x1440 or 3840x2160 monitor for the phase 1 acceptance evidence.
+`eco`, `max` and optional Anime4K profiles. A meaningful comparison needs a real
+1280x720 source on a 2560x1440 or 3840x2160 monitor.
 
 The repository also contains a reproducible synthetic 1280x720 chart generated
 by `scripts/generate-upscale-test-chart.ps1`. Preliminary 1080p results and

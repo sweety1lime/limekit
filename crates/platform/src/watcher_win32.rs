@@ -1,8 +1,8 @@
 //! Win32 activity watcher: a hidden window thread that polls the foreground
 //! window and battery state (500 ms) and receives session-lock and display
-//! power notifications. The 2-second reaction budget of the phase 3
-//! acceptance criterion allows comfortable polling; one poll is a handful of
-//! user32 calls, far below measurable CPU cost.
+//! power notifications. Wallpapers only need to pause within about two
+//! seconds, which polling meets comfortably; one poll is a handful of user32
+//! calls, far below measurable CPU cost.
 
 use std::sync::mpsc;
 use std::thread::JoinHandle;

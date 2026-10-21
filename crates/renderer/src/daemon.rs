@@ -1,7 +1,7 @@
 //! Long-lived renderer daemon: owns wallpaper sessions and serves the local
 //! IPC endpoint.
 //!
-//! Threading model (docs/research/phase2-architecture.md): the accept loop and
+//! Threading model (docs/research/architecture.md): the accept loop and
 //! one thread per connection only read/write frames; decoded requests are
 //! forwarded over `mpsc` to the main daemon thread, which exclusively owns the
 //! platform host and the mpv players. A stalled client therefore blocks only

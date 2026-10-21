@@ -38,8 +38,8 @@ pub struct MonitorInfo {
 ///
 /// This is a stable key, not the native window value: backends may recreate
 /// the underlying window (e.g. after explorer.exe restarts) without changing
-/// the handle. Phase 1 adds an accessor for the current native window so the
-/// renderer can hand the surface to libmpv via `--wid`.
+/// the handle. [`WallpaperHost::surface_native_handle`] returns the current
+/// native window so the renderer can hand the surface to libmpv via `--wid`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SurfaceHandle(pub(crate) u64);
 
@@ -69,8 +69,8 @@ pub trait WallpaperHost {
 
     /// Creates a surface hosting a webview that serves `root` over an internal
     /// protocol and loads `entry` (a file name inside `root`), placed behind
-    /// the desktop icons. Used for HTML and glTF (three.js) wallpapers
-    /// (phase 6). The protocol (not `file://`) lets pages fetch assets and
+    /// the desktop icons. Used for HTML and glTF (three.js) wallpapers.
+    /// The protocol (not `file://`) lets pages fetch assets and
     /// load ES modules and 3D models.
     fn create_web_surface(
         &mut self,
@@ -99,8 +99,9 @@ pub trait WallpaperHost {
     /// Undoes [`WallpaperHost::pause`].
     fn resume(&mut self) -> Result<()>;
 
-    /// Fills a surface with a solid color. Diagnostic path for the phase 0
-    /// `test-surface` command; real content rendering replaces it in phase 1.
+    /// Fills a surface with a solid color. Diagnostic path for the
+    /// `test-surface` command, which checks the layer behind the icons without
+    /// libmpv or WebView2.
     fn set_surface_color(&mut self, surface: SurfaceHandle, rgb: [u8; 3]) -> Result<()> {
         let _ = (surface, rgb);
         Err(HostError::Unsupported("solid-color fill"))
@@ -145,9 +146,7 @@ pub fn create_host() -> Result<Box<dyn WallpaperHost>> {
     }
     #[cfg(not(windows))]
     {
-        Err(HostError::Unsupported(
-            "only Windows is targeted in phase 0",
-        ))
+        Err(HostError::Unsupported("only Windows is supported for now"))
     }
 }
 

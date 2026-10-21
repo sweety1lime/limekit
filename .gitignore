@@ -18,7 +18,3 @@
 .idea/
 Thumbs.db
 .DS_Store
-
-# Local tooling
-.claude/
-CLAUDE.md

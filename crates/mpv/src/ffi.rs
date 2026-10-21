@@ -33,9 +33,9 @@ pub struct mpv_event {
 }
 
 // ---------------------------------------------------------------------------
-// Render API (render.h): offscreen rendering for the phase-2 decoder sandbox.
-// Software mode ("sw") makes libmpv render frames straight into a CPU buffer —
-// no GL/EGL context — which is the cheapest way to prove the pipeline.
+// Render API (render.h): off-screen rendering, so a decoder can run in a
+// sandboxed process that owns no window. Software mode ("sw") makes libmpv
+// render frames straight into a CPU buffer, with no GL/EGL context.
 // ---------------------------------------------------------------------------
 
 /// Opaque render context handle.

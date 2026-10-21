@@ -17,7 +17,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Fill a monitor with a solid color behind the desktop icons (phase 0).
+    /// Fill a monitor with a solid color behind the desktop icons.
     TestSurface {
         /// Monitor index as listed by the platform backend.
         #[arg(long, default_value_t = 0)]
@@ -43,7 +43,7 @@ enum Command {
         #[arg(long)]
         anime4k: bool,
     },
-    /// Show a local HTML file as a web wallpaper behind the icons (phase 6).
+    /// Show a local HTML file as a web wallpaper behind the icons.
     TestWeb {
         /// Path to the HTML entry file.
         file: PathBuf,
@@ -86,7 +86,7 @@ enum Command {
         /// One or more `.wpk` files.
         files: Vec<PathBuf>,
     },
-    /// Run the long-lived local IPC daemon (phase 2).
+    /// Run the long-lived local IPC daemon.
     Serve {
         /// Override the per-user local socket name (primarily for tests).
         #[arg(long)]

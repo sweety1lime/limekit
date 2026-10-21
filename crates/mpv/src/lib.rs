@@ -271,9 +271,9 @@ impl Drop for Player {
 }
 
 /// Software-mode render context: libmpv renders frames straight into a CPU pixel
-/// buffer, with no GL/EGL context. This is the foundation for the phase-2
-/// decoder that renders off-screen so it can run sandboxed
-/// (docs/research/renderer-sandbox-phase2.md).
+/// buffer, with no GL/EGL context. A decoder that renders off-screen owns no
+/// window, so it can run in a sandboxed process
+/// (docs/research/renderer-sandbox.md).
 ///
 /// Borrows its [`Player`] so it is always freed before the player is destroyed,
 /// which libmpv requires.

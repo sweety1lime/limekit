@@ -1,7 +1,8 @@
 //! Versioned JSON protocol and bounded framing shared by LimeKit processes.
 //!
 //! Transport is deliberately independent from Tauri, libmpv and the platform
-//! backend. Phase 2 uses these frames over `interprocess` local sockets.
+//! backend. The daemon and the UI exchange these frames over `interprocess`
+//! local sockets.
 
 use std::io::{Read, Write};
 use std::path::PathBuf;

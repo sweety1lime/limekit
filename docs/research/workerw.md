@@ -1,152 +1,153 @@
-# Research 0.1 — WorkerW: слой позади иконок на Windows 10/11 (включая 24H2/25H2)
+# Слой позади иконок: WorkerW на Windows 10 и 11
 
-Дата: 2026-07-10. Статус: **стратегия утверждена владельцем 2026-07-10**, реализована в `crates/platform/src/win32.rs`.
+Как нарисовать окно за иконками рабочего стола и не потерять его после
+обновления Windows или перезапуска Проводника. Реализация живёт в
+`crates/platform/src/win32.rs`.
 
-## TL;DR
+## Коротко
 
-Классический WorkerW-хак жив, но на Windows 11 24H2+ иерархия окон изменилась:
-WorkerW теперь создаётся **внутри Progman** (child), а не top-level сиблингом.
-Рабочая стратегия — **двухпутевой поиск** (классический путь + 24H2-путь) с retry
-и фолбэком на сам Progman, плюс watchdog на пересоздание WorkerW. Так делают
-актуальные реализации (Lively 2.1+ переписала ядро под 24H2; MIT-проекты
-используют ровно этот dual-path).
+Официального API для этого у Windows нет. Все приложения живых обоев используют
+один и тот же приём с окном WorkerW. На Windows 11 24H2 Microsoft поменяла
+иерархию окон рабочего стола: WorkerW теперь создаётся **внутри Progman**, а не
+рядом с ним. Поэтому LimeKit ищет родительское окно двумя путями сразу, повторяет
+поиск, пока окно не появится, а в крайнем случае рисует прямо в Progman. Раз в
+секунду сторож проверяет, живо ли родительское окно, и при необходимости
+пристраивается заново.
 
-## 1. Как работает классика (Windows 10 → Windows 11 23H2)
+## Классический путь (Windows 10 — Windows 11 23H2)
 
-1. `FindWindow("Progman", NULL)` — окно Program Manager.
+1. `FindWindow("Progman", NULL)` находит окно Program Manager.
 2. `SendMessageTimeout(progman, 0x052C, 0xD, 0, SMTO_NORMAL, 1000, ...)` и
-   повторно с `lParam = 1`. Недокументированное сообщение: Progman порождает
-   WorkerW позади иконок (механизм анимации смены обоев). Идемпотентно — если
-   WorkerW уже есть, сообщение игнорируется.
-3. После этого среди top-level окон существуют **два** WorkerW:
-   - WorkerW №1 — содержит `SHELLDLL_DefView` (сами иконки рабочего стола);
-   - WorkerW №2 — пустой, лежит в Z-порядке **за** иконками. Это цель.
-4. Поиск цели: `EnumWindows`; для каждого окна
-   `FindWindowEx(hwnd, NULL, "SHELLDLL_DefView", NULL)`; когда DefView найден —
-   цель = `FindWindowEx(NULL, hwnd_с_DefView, "WorkerW", NULL)` (следующий
-   top-level WorkerW после него).
-5. `SetParent(наше_окно, worker_w)` → наше окно рисуется позади иконок.
+   ещё раз с `lParam = 1`. Это недокументированное сообщение: Progman в ответ
+   создаёт WorkerW позади иконок, тот самый слой, через который Windows
+   анимирует смену обоев. Если WorkerW уже есть, сообщение ничего не делает.
+3. После этого среди окон верхнего уровня два WorkerW:
+   - в первом лежит `SHELLDLL_DefView`, то есть сами иконки;
+   - второй пустой и стоит в Z-порядке **за** иконками. Он и нужен.
+4. Поиск: `EnumWindows`, для каждого окна
+   `FindWindowEx(hwnd, NULL, "SHELLDLL_DefView", NULL)`. Когда DefView найден,
+   цель — следующий WorkerW верхнего уровня:
+   `FindWindowEx(NULL, hwnd_с_DefView, "WorkerW", NULL)`.
+5. `SetParent(наше_окно, worker_w)`, и окно рисуется за иконками.
 
-Нюанс старых сборок Win10: иногда `SHELLDLL_DefView` живёт прямо в Progman;
-тогда часть приложений парентится напрямую к Progman — тоже работает.
+На некоторых сборках Windows 10 `SHELLDLL_DefView` лежит прямо в Progman. Тогда
+можно рисовать в сам Progman, это тоже оказывается за иконками.
 
-## 2. Что сломалось в Windows 11 24H2 (build 26100) / 25H2 (26200)
+## Что изменилось в Windows 11 24H2 и 25H2
 
-Подтверждено несколькими независимыми источниками (Lively, GameMaker,
-Wallpaper Engine, AutoHotkey-сообщество):
+Это подтверждают несколько независимых источников: трекеры Lively и GameMaker,
+обсуждения Wallpaper Engine и сообщество AutoHotkey.
 
-- **Иерархия изменилась**: после `0x052C` WorkerW создаётся как **child окна
-  Progman** (за `SHELLDLL_DefView`, который также находится под Progman),
-  а не top-level сиблингом. Классический поиск через `EnumWindows` находит ноль
-  кандидатов.
-- **Задержка создания**: сразу после логона WorkerW под Progman может ещё не
-  существовать и появляется позже; `0x052C` форсирует создание, но нужен
-  retry-цикл с небольшим таймаутом.
-- **Пересоздание/уничтожение WorkerW**: смена системных обоев, перезапуск
-  explorer.exe (и, по отчётам Lively, спонтанно) уничтожают WorkerW вместе с
-  нашим окном-ребёнком → приложения без re-attach уходили в цикл перезапуска.
-- Побочный эффект для фазы 1: на 24H2 у встроенного mpv-окна наблюдались
-  артефакты «обои не на весь экран», лечится опцией mpv `border=no`
-  (зафиксировать при интеграции libmpv).
-- 25H2 (26200) делит servicing-ветку с 24H2 (одна платформа, один код шелла) —
-  отдельных изменений механизма не обнаружено; ломаются только приложения без
-  24H2-фолбэка.
+- **Другая иерархия.** После `0x052C` WorkerW создаётся как дочернее окно
+  Progman, рядом с `SHELLDLL_DefView`, который тоже теперь под Progman.
+  Классический поиск через `EnumWindows` находит ноль кандидатов.
+- **WorkerW появляется не сразу.** Сразу после входа в систему его может ещё не
+  быть. `0x052C` ускоряет создание, но без повторных попыток не обойтись.
+- **WorkerW пересоздаётся.** Смена системных обоев и перезапуск explorer.exe
+  уничтожают WorkerW вместе с дочерним окном, а по отчётам Lively это иногда
+  случается и само по себе. Приложения, которые не умели пристраиваться заново,
+  уходили в цикл перезапусков.
+- **Обои не на весь экран.** На 24H2 у встроенного окна mpv появлялась рамка.
+  Лечится опцией `border=no`, LimeKit задаёт её всегда.
+- 25H2 (сборка 26200) использует ту же платформу, что и 24H2, отдельных
+  изменений механизма я не нашёл. Ломаются те приложения, у которых нет пути
+  для 24H2.
 
-Lively выпустила мажорную версию с «полностью переписанным ядром под 24H2» —
-т.е. проблема решаема в рамках того же хака, отдельного API Microsoft не дала.
+Lively выпустила версию с ядром, переписанным под 24H2, на том же приёме. Значит,
+задача решается без нового API, которого Microsoft так и не дала.
 
-## 3. Выбранная стратегия (предложение)
+## Как это сделано в LimeKit
 
-Псевдокод поиска родителя (dual-path):
+Поиск родителя (`find_wallpaper_parent`):
 
 ```text
-find_wallpaper_parent():
-    progman = FindWindow("Progman")
-    SendMessageTimeout(progman, 0x052C, 0xD, 0)
-    SendMessageTimeout(progman, 0x052C, 0xD, 1)
+progman = FindWindow("Progman")
+SendMessageTimeout(progman, 0x052C, 0xD, 0)
+SendMessageTimeout(progman, 0x052C, 0xD, 1)
 
-    retry до ~2 c (шаг 100 мс):                  # 24H2 создаёт WorkerW с задержкой
-        # Путь A — 24H2+: WorkerW как child Progman
-        w = FindWindowEx(progman, NULL, "WorkerW", NULL)
-        if w: return w
-        # Путь B — классика ≤23H2: сиблинг после окна с SHELLDLL_DefView
-        w = EnumWindows: окно c SHELLDLL_DefView → FindWindowEx(NULL, оно, "WorkerW", NULL)
-        if w: return w
+повторять до ~2 с с шагом 100 мс:
+    # 24H2 и новее: WorkerW — дочернее окно Progman
+    w = FindWindowEx(progman, NULL, "WorkerW", NULL)
+    if w: return w
+    # до 23H2: WorkerW после окна с SHELLDLL_DefView
+    w = EnumWindows → окно с SHELLDLL_DefView → FindWindowEx(NULL, оно, "WorkerW", NULL)
+    if w: return w
 
-    # Последний фолбэк (старые сборки Win10, где DefView прямо в Progman)
-    return progman
+return progman   # сборки, где DefView прямо в Progman
 ```
 
-Порядок A/B не критичен (на каждой сборке существует ровно один вариант);
-проверяем оба на каждой итерации, без жёсткой привязки к номеру билда — меньше
-шансов сломаться на будущих сборках.
+На каждой сборке существует только один из двух вариантов, поэтому порядок
+проверки не важен. Номер сборки я не проверяю намеренно: если следующая версия
+Windows снова что-то поменяет, привязка к номеру сломается первой.
 
-Наше окно и позиционирование:
+Окно и координаты:
 
-- Своё окно через crate `windows`: `WS_POPUP`, без рамки/заголовка,
-  `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW` (не активируется, нет в Alt-Tab).
-- Процесс объявляет **Per-Monitor DPI v2**
-  (`SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` первым делом в main) —
-  все координаты в физических пикселях, без виртуализации.
-- Клиентская область WorkerW покрывает весь виртуальный рабочий стол; после
-  `SetParent` координаты монитора переводятся из экранных в клиентские
-  WorkerW через `MapWindowPoints` (origin виртуального экрана может быть
-  отрицательным — не считать руками, только MapWindowPoints).
-- Мониторы: `EnumDisplayMonitors` + `GetMonitorInfo` (координаты, primary) +
-  `GetDpiForMonitor` (масштаб).
+- Своё окно `WS_POPUP` без рамки и заголовка, с `WS_EX_NOACTIVATE |
+  WS_EX_TOOLWINDOW`: оно не забирает фокус и не появляется в Alt+Tab.
+- Процесс объявляет Per-Monitor DPI v2
+  (`SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)`), поэтому все
+  координаты в физических пикселях, без масштабирования со стороны Windows.
+- WorkerW покрывает весь виртуальный рабочий стол. Координаты монитора
+  переводятся в клиентские координаты WorkerW через `MapWindowPoints`. Начало
+  виртуального экрана бывает отрицательным, если монитор стоит слева от
+  основного, так что вручную я это не считаю.
+- Мониторы: `EnumDisplayMonitors`, `GetMonitorInfo` и `GetDpiForMonitor`.
 
-Watchdog (обязателен из-за пересоздания WorkerW):
+Сторож:
 
-- Лёгкий таймер (~1 с): `IsWindow(parent)` и `IsWindow(progman)`; если родитель
-  умер — повторить discovery и re-attach (пересоздать окно при необходимости).
-  Это же покрывает перезапуск explorer.exe. CPU-цена — ноль (одно API-число в
-  секунду), критерию «~0% CPU в покое» не противоречит.
+- Таймер раз в секунду проверяет `IsWindow` у родителя. Если родитель исчез,
+  поиск запускается заново, и окно пристраивается к новому родителю, а если
+  нужно, пересоздаётся. Так же обрабатывается перезапуск explorer.exe. По
+  процессору это ничего не стоит: один вызов API в секунду.
+- Сторож сверяет поверхности с мониторами по имени устройства. При смене
+  разрешения он двигает и растягивает окно, при отключении монитора прячет его,
+  при подключении возвращает.
 
-Восстановление рабочего стола при выходе (Ctrl+C → graceful shutdown):
+Когда обои останавливаются, окно уничтожается, а затем
+`SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, NULL, SPIF_UPDATEINIFILE |
+SPIF_SENDCHANGE)` заново ставит текущие системные обои, чтобы на месте окна не
+осталось следов.
 
-1. `DestroyWindow(наше_окно)`.
-2. Перерисовка обоев: `SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, NULL,
-   SPIF_UPDATEINIFILE | SPIF_SENDCHANGE)` — переустанавливает текущие системные
-   обои из реестра, убирает возможные артефакты на месте нашего окна.
-3. Ctrl+C ловим через `SetConsoleCtrlHandler` (или crate `ctrlc`, MIT/Apache) и
-   шлём команду завершения в цикл сообщений окна.
+## Что проверено
 
-## 4. Известные проблемы (фиксируем заранее)
-
-| Событие | Эффект | Митигация | Проверено |
+| Событие | Что происходит | Что делает LimeKit | Проверено |
 |---|---|---|---|
-| Смена системных обоев / персонализация | WorkerW может быть пересоздан, наше окно исчезает | watchdog + re-attach | Win10 22H2: окно выживает без re-attach (SPI_SETDESKWALLPAPER, 2026-07-10) |
-| Перезапуск explorer.exe | Вся иерархия уничтожена | watchdog: ждать новый Progman, re-attach | не проверено (нужен ручной тест) |
-| Логон/автостарт на 24H2 | WorkerW ещё не существует | retry-цикл в discovery | не проверено (нет 24H2-машины) |
-| Смена разрешения / топологии мониторов | Старые координаты поверхности больше не совпадают с дисплеем | watchdog сопоставляет поверхность по имени устройства, меняет размер/позицию; скрывает отключённый монитор и возвращает при подключении | Win10 22H2: 1920x1080 → 1600x900 → 1920x1080, renderer выжил, размеры кадров совпали; hot-plug не проверен |
-| F5 на рабочем столе | По отчётам — безвредно | тест в критериях приёмки | Win10 22H2: окно выживает (WM_COMMAND refresh, 2026-07-10) |
-| Будущие сборки Windows | Иерархия может снова поменяться | dual-path без привязки к билду; абстракция WallpaperHost | — |
+| Смена системных обоев | WorkerW может пересоздаться | сторож пристраивает окно заново | Windows 10 22H2: окно выживает и без этого |
+| F5 на рабочем столе | по отчётам ничего | — | Windows 10 22H2: окно выживает |
+| Смена разрешения монитора | координаты поверхности устаревают | сторож меняет размер и положение | Windows 10 22H2: 1920x1080 → 1600x900 → 1920x1080, кадры совпали |
+| Перезапуск explorer.exe | вся иерархия уничтожена | сторож ждёт новый Progman и пристраивает окно | **не проверено** |
+| Вход в систему с автозапуском на 24H2 и новее | WorkerW ещё не создан | повторные попытки при поиске | **не проверено** |
+| Отключение и подключение монитора | монитор пропадает | поверхность прячется и возвращается | **не проверено** на втором физическом мониторе |
+| Будущие сборки Windows | иерархия может снова поменяться | два пути без привязки к сборке, абстракция `WallpaperHost` | — |
 
-## 5. Лицензионная чистота
+Пока последние строки не проверены на живой машине с Windows 11, модуль обоев
+нельзя считать готовым для 24H2, 25H2 и 26H2. В окне «Диагностика» есть
+проверка видимости иконок рабочего стола (`platform::desktop_icons_visible`):
+на 24H2 встречалась ошибка, когда иконки пропадают.
 
-- Изучены **MIT/Apache** реализации: `meslzy/tauri-plugin-wallpaper` (MIT,
-  dual-path discovery), `ohkashi/LimeWallpaper` (MIT), `yadokani389/bevy_live_wallpaper`
-  (MIT/Apache). Идеи подтверждены, код не копировался — наша реализация пишется
-  с нуля на crate `windows` (MIT/Apache-2.0).
-- GPL-проекты (Lively): читались **только** issue-треки и release notes
-  (симптомы 24H2, факт переписывания ядра). Исходный код не открывался.
+## Откуда идеи
 
-## 6. Источники
+Я разбирал реализации под MIT и Apache: `meslzy/tauri-plugin-wallpaper` (тот же
+двойной поиск), `ohkashi/LimeWallpaper`, `yadokani389/bevy_live_wallpaper`. Код
+не копировал, реализация написана с нуля на crate `windows`. У Lively читал
+только issues и release notes.
 
-- CodeProject «Draw Behind Desktop Icons in Windows 8+» — классика хака:
+## Источники
+
+- CodeProject, «Draw Behind Desktop Icons in Windows 8+»:
   <https://www.codeproject.com/Articles/856020/Draw-Behind-Desktop-Icons-in-Windows-plus>
-- Описание техники (messages, поиск WorkerW, SetParent):
+- Описание приёма с сообщениями, поиском WorkerW и SetParent:
   <https://dynamicwallpaper.readthedocs.io/en/docs/dev/make-wallpaper.html>
-- AutoHotkey: слом на 24H2, WorkerW под Progman, задержка создания:
+- AutoHotkey: поломка на 24H2, WorkerW под Progman, задержка создания:
   <https://www.autohotkey.com/boards/viewtopic.php?t=135199>
-- MIT-реализация с 24H2-фолбэком: <https://github.com/meslzy/tauri-plugin-wallpaper>
-- Lively: релиз с переписанным ядром под 24H2 и симптомы —
+- Реализация под MIT с путём для 24H2: <https://github.com/meslzy/tauri-plugin-wallpaper>
+- Lively: релиз с переписанным ядром и симптомы:
   <https://github.com/rocksdanister/lively/releases>,
-  issues [#2374](https://github.com/rocksdanister/lively/issues/2374),
-  [#2407](https://github.com/rocksdanister/lively/issues/2407) (WorkerW destroyed),
-  [#2415](https://github.com/rocksdanister/lively/issues/2415) (border/не весь экран, mpv `border=no`),
+  [#2374](https://github.com/rocksdanister/lively/issues/2374),
+  [#2407](https://github.com/rocksdanister/lively/issues/2407) (WorkerW уничтожен),
+  [#2415](https://github.com/rocksdanister/lively/issues/2415) (рамка, mpv `border=no`),
   [#2422](https://github.com/rocksdanister/lively/issues/2422) (медленный старт).
-- GameMaker: 24H2 ломает композицию wallpaper-окон:
+- GameMaker: 24H2 ломает окна позади иконок:
   <https://github.com/YoYoGames/GameMaker-Bugs/issues/8710>
-- 25H2: приложения без фолбэка ломаются (Wallpaper Alive, Steam-обсуждение):
+- 25H2: ломаются приложения без пути для 24H2 (Wallpaper Alive):
   <https://steamcommunity.com/app/2003310/discussions/0/682986292644990155/>

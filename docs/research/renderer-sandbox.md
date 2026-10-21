@@ -1,136 +1,126 @@
-# Песочница рендерера — исследование (Windows)
+# Изоляция рендерера
 
-Статус: **research/design, код не писан**. Задача — честно оценить, можно ли
-изолировать процесс `renderer`, который 24/7 проигрывает потенциально
-недоверенный контент, и предложить реализуемый путь. Конкурентов изучаем, код не
-копируем (правило проекта).
+Процесс `renderer` круглые сутки проигрывает содержимое, которому нельзя
+полностью доверять. Здесь разобрано, как его можно изолировать, что из этого
+уже сделано и почему самый очевидный вариант не работает.
 
-## Что процесс делает сегодня (факты из кода)
+## Что процесс делает и что изоляция должна пережить
 
-Любая изоляция должна пережить это:
+- **Пристраивает своё окно за иконки:** `SetParent(наше_окно, WorkerW)`, а
+  WorkerW принадлежит explorer.exe, который работает на среднем уровне
+  целостности (Medium IL). Подробно в [workerw.md](workerw.md).
+- **Играет видео и картинки через libmpv.** `libmpv-2.dll` загружается в
+  рантайме (crate `mpv`), Microsoft её не подписывала. Декодирование идёт на
+  GPU через D3D11VA, окно передаётся плееру через `--wid`.
+- **Показывает веб- и 3D-обои через WebView2** (`wry`) с `WALLPAPER_CSP` и
+  запретом новых окон. WebView2 сам запускает содержимое в многопроцессной
+  песочнице Chromium.
+- **Запускает другие процессы:** демон открывает окно управления из трея,
+  CLI вызывает ffmpeg.
+- **Пишет файлы** в `%APPDATA%\LimeKit` и общается с окном через локальный
+  named pipe.
 
-- **Парентинг за иконки рабочего стола**: `SetParent(наше_окно, WorkerW)`, где
-  WorkerW — окно, принадлежащее **explorer.exe** (Medium IL).
-  См. `crates/platform/src/win32.rs:1066-1072`, discovery — `:796-844`.
-- **Видео/картинки через libmpv**: `libmpv-2.dll` грузится в рантайме через
-  `libloading` (crate `mpv`); DLL **не подписана Microsoft**; аппаратное
-  декодирование через D3D11VA, окно отдаётся по `--wid`.
-- **Web/3D через WebView2** (`wry`): `crates/platform/src/win32.rs:934`, с нашим
-  `WALLPAPER_CSP` (без выхода в сеть) и запретом новых окон (`:950`). WebView2
-  крутит вложенный message-pump и **сам** запускает контент в многопроцессной
-  Chromium-песочнице.
-- **Дочерние процессы**: демон запускает UI по «Open LimeWall» (`daemon.rs:1533`),
-  CLI-подкоманды зовут ffmpeg (`main.rs:537`).
-- **Файлы**: библиотека в `%APPDATA%/LimeWall`, IPC — локальный сокет/named pipe.
+## От чего защищаемся
 
-## Модель угроз
+От эксплойта в декодере: C-код libmpv/ffmpeg разбирает недоверенное видео, и
+ошибка в разборе может дать выполнение кода. Второй вариант — побег из WebView2.
 
-Что реально защищаем: **эксплойт бага парсинга в декодере** (C-код libmpv/ffmpeg
-разбирает недоверенное видео → RCE), либо побег из WebView2/JS.
+Риск уже снижают:
 
-Что уже снижает риск (не надо переоценивать угрозу для беты):
-- Галерея — **только медиа**, модерация PR, проверка **SHA-256**, **отзыв**
-  (kill-switch). Код-обои (web/3D) требуют **явного согласия** и живут под CSP.
-- WebView2 **уже** изолирует веб-контент своей песочницей; наш CSP убирает сеть.
-- Значит **самая ценная цель песочницы — нативный путь libmpv/ffmpeg**, а не web.
+- каталог принимает только видео и картинки, пакеты проходят ревью, у каждого
+  есть SHA-256, отозванные пакеты удаляются;
+- веб- и 3D-обои ставятся только после подтверждения и работают без сети;
+- веб изолирован песочницей Chromium.
 
-## Варианты изоляции и конфликты
+Поэтому изолировать в первую очередь стоит нативный путь libmpv/ffmpeg, а не веб.
 
-### A. Полный AppContainer на весь `renderer` — **отклонено**
+## Варианты
 
-AppContainer — это уровень ниже Low IL. Перепарентить наше окно **под окно
-explorer.exe (Medium IL)** через `SetParent` — это модификация чужого окна
-процессом с более низким IL, что блокирует **UIPI** (User Interface Privilege
-Isolation). То есть `SetParent(WorkerW)` из AppContainer **почти наверняка
-провалится** (нужно подтвердить спайком, но приоритет высокий).
+### Весь `renderer` в AppContainer — не подходит
 
-То же касается запуска всего процесса на **Low IL** — WorkerW-парентинг ломается
-по той же причине. Вывод: **нельзя изолировать процесс, который сам лезет в
-WorkerW.** Привилегированную часть нужно отделить.
+AppContainer работает ниже Low IL. Чтобы пристроить окно под окно explorer.exe,
+процесс должен изменить окно с более высоким уровнем целостности, а это
+блокирует UIPI (User Interface Privilege Isolation). Значит,
+`SetParent(WorkerW)` из AppContainer провалится. С процессом на Low IL та же
+история. Процесс, который сам пристраивается к WorkerW, изолировать целиком
+нельзя, привилегированную часть придётся отделить.
 
-### B. Разделение: привилегированный host + песочница-декодер — **целевой путь**
+### Хост и отдельный декодер — правильный путь, пока не сделан
 
-По образцу изоляции в браузерах:
+Так устроены браузеры:
 
-- **Host** (Medium IL, минимальный): владеет WS_CHILD-окном под WorkerW, делает
-  `SetParent`, композитит кадр на поверхность. Ничего не парсит.
-- **Декодер** (сильно ограничен: AppContainer / restricted token): гоняет libmpv
-  через **render API** (`mpv_render_context_create`, OpenGL/D3D-callback), рисует
-  в **общую GPU-текстуру** (D3D11 shared handle + keyed mutex), которую host
-  выводит на обои. Декодер **не касается окон explorer** → UIPI не мешает, и его
-  можно душить по-настоящему: AppContainer + ACG (`DYNAMIC_CODE_PROHIBITED`, у
-  ffmpeg/libmpv нет CPU-JIT) + запрет дочерних процессов + строгий токен.
-- **IPC** host↔декодер: наш существующий локальный сокет (ACL с SID AppContainer)
-  или анонимный pipe.
+- **Хост** (Medium IL, минимальный) владеет окном под WorkerW и выводит готовый
+  кадр. Сам он ничего не разбирает.
+- **Декодер** (AppContainer или restricted token) гоняет libmpv через render
+  API и рисует в общую текстуру D3D11 (shared handle и keyed mutex). Окна
+  explorer.exe он не трогает, поэтому UIPI ему не мешает, и запереть его можно
+  по-настоящему: AppContainer без сети, запрет динамического кода (у
+  libmpv/ffmpeg нет JIT), запрет дочерних процессов, пустая рабочая папка.
+  Медиафайл он получает как унаследованный хендл, без доступа к диску.
 
-Цена: заметная сложность (по-мониторный процесс-декодер, плумбинг shared-surface,
-оверхед кросс-процессного композита), плюс переезд на libmpv render API (мы и так
-знаем про его нужность на macOS, где `--wid` не работает). Это работа «когда
-оправдано» — перед приёмом UGC или ростом, не для закрытой беты.
+Бонус: если декодер упадёт, в том числе от эксплойта, демон перезапустит его,
+и обои продолжат играть. Сейчас падение libmpv роняет весь рендерер.
 
-### C. Web/3D — полагаемся на песочницу WebView2
+Первый шаг проверен. libmpv отдаёт кадры без окна: `crates/mpv` умеет
+software-рендер через render API (`RenderContext`), а пример
+`crates/mpv/examples/sw_render.rs` без окна и без GPU декодирует видео в буфер
+в памяти. Не проверены передача кадра между процессами, вывод в окно под
+WorkerW, работа GPU внутри AppContainer и производительность на 1080p и 4K
+по сравнению с `--wid`.
 
-WebView2 уже запускает контент в отдельных Chromium-процессах (browser/renderer/
-GPU — каждый в своём AppContainer). Наша задача — **не ослаблять** её (никаких
-`--no-sandbox`, оставить CSP без сети, запрет новых окон уже есть). Отдельно
-песочницу для web строить не нужно; риск здесь сравнительно закрыт.
+Это недели работы с unsafe-кодом D3D11 и FFI. Пока каталог принимает только
+модерируемые видео и картинки, выигрыш невелик, поэтому я отложил это до
+момента, когда в LimeKit начнёт попадать больше чужого содержимого.
 
-### D. Process-mitigation policies на текущий процесс — **реализуемо сейчас**
+### Веб и 3D — песочница WebView2
 
-Не меняя архитектуру, можно навесить Win32-митигации (при спавне через
-`UpdateProcThreadAttribute` + `PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY`, либо в
-рантайме `SetProcessMitigationPolicy`). Совместимость с нашим стеком:
+WebView2 запускает содержимое в отдельных процессах Chromium (browser, renderer,
+GPU), каждый в своей песочнице. Моя задача — её не ослаблять: никакого
+`--no-sandbox`, CSP без сети, запрет новых окон. Свою песочницу для веба строить
+не нужно.
 
-| Митигация | Совместимо? | Причина |
+### Митигации процесса — сделано
+
+Архитектуру это не меняет, но эксплуатировать ошибки становится труднее.
+`platform::harden_process()` (`crates/platform/src/harden_win32.rs`)
+вызывается первым делом в `main` рендерера, а `.cargo/config.toml` собирает
+весь workspace с Control Flow Guard.
+
+| Митигация | Включена | Почему |
 |---|---|---|
-| DEP/NX, ASLR (bottom-up + high-entropy), SEHOP | ✅ | дефолт на x64, без побочек |
-| CFG (Control Flow Guard) | ✅ | собрать наш код с `-C control-flow-guard`; libmpv/WebView2 уже с CFG |
-| Extension Point Disable | ✅ | режет инъекцию legacy hook/AppInit-DLL |
-| Prefer System32 / no-remote / no-low-IL образы | ✅ | ужесточает загрузку DLL |
-| CIG — только MS-подписанные DLL | ❌ | libmpv-2.dll, ffmpeg, WebView2-loader не MS-подписаны |
-| ACG — запрет динамического кода | ❌ | ломает JIT WebView2 (Chromium) |
-| Win32k syscall disable | ❌ | нужен GDI/USER для окон |
-| Запрет дочерних процессов | ❌ | демон запускает UI, CLI зовёт ffmpeg |
+| DEP/NX, ASLR, SEHOP | да | включены по умолчанию на x64 |
+| Control Flow Guard | да | `-C control-flow-guard`; libmpv и WebView2 уже собраны с CFG |
+| Extension Point Disable | да | закрывает внедрение через AppInit_DLLs, глобальные хуки и IME |
+| Загрузка образов: без UNC, без low-label, сначала System32 | да | ужесточает поиск DLL; свои libmpv и ffmpeg грузятся по полному пути |
+| Code Integrity Guard (только DLL с подписью Microsoft) | нет | libmpv, ffmpeg и загрузчик WebView2 не подписаны Microsoft |
+| Arbitrary Code Guard (запрет динамического кода) | нет | ломает JIT в Chromium внутри WebView2 |
+| Отключение Win32k | нет | окнам нужны GDI и USER |
+| Запрет дочерних процессов | нет | демон открывает окно управления, CLI вызывает ffmpeg |
 
-Итог D: набор «бесплатных» митигаций снижает эксплуатируемость **без** ломки
-WorkerW/WebView2. Эффект скромный, но реальный и малорисковый. Хороший **Фаза 1**.
+Если какая-то политика не поддерживается старой Windows, это пишется в лог и
+не мешает запуску.
 
-## Что делают конкуренты (изучено, код не копировали)
+## Что у других
 
-- **Lively** (GPL): обои — отдельные дочерние процессы (mpv / web-рендер),
-  перепарентятся под рабочий стол; сильной песочницы нет; web — через WebView2.
-- **Wallpaper Engine** (проприетарная): фон + web/плагины через CEF (Chromium-
-  песочница). Исторически были инциденты с воркшоп-контентом — подтверждает, что
-  риск недоверенного контента реален, и что Chromium-песочница берёт часть на себя.
+- **Lively** (GPL): каждые обои — отдельный дочерний процесс (mpv или
+  веб-рендер), пристроенный к рабочему столу. Сильной песочницы нет, веб через
+  WebView2.
+- **Wallpaper Engine** (проприетарный): веб через CEF, то есть тоже песочница
+  Chromium. В 2026 году через его Workshop распространяли обои типа «приложение»
+  со стилерами, после чего такие обои из Workshop убрали. Риск чужого
+  содержимого вполне реален.
 
-Вывод из обзора: сильной готовой модели «песочница движка обоев» у конкурентов
-нет; изоляцию нативного декодера каждый решает слабо, а web закрывает Chromium.
-
-## Рекомендация
-
-1. **Фаза 1 (сейчас, низкий риск) — ✅ сделано.** Совместимые process-mitigation
-   policies (extension-point-disable + image-load: no-remote / no-low-label /
-   prefer-system32) применяются в `platform::harden_process()`
-   (`crates/platform/src/harden_win32.rs`), вызывается первым в `renderer` main;
-   CFG включён для Windows-MSVC сборок через `.cargo/config.toml`.
-2. **Web/3D** — оставить как есть: песочница WebView2 + CSP; ничего не ослаблять.
-3. **Фаза 2 (перед UGC / когда оправдано)** — вынести декодер в
-   AppContainer-child через libmpv render API + shared-texture; host держит
-   WorkerW. Дизайн и план спайка: [renderer-sandbox-phase2.md](renderer-sandbox-phase2.md).
-4. **Полный AppContainer на весь процесс — не делаем** (UIPI vs WorkerW).
-
-## Проверить спайком перед кодом Фазы 2
-
-- Реально ли `SetParent(WorkerW)` падает из AppContainer/Low IL (подтвердить UIPI).
-- Живёт ли host-of-WebView2 при ограничениях; требования WebView2 к AppContainer.
-- Перф shared-texture композита по каждому монитору vs текущий `--wid`.
+Готовой модели изоляции нативного декодера у движков обоев нет. Веб за них
+закрывает Chromium.
 
 ## Ссылки
 
-- Process mitigation policies — `SetProcessMitigationPolicy`, `UpdateProcThreadAttribute`
-  (`PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY`), Microsoft Learn (win32/api/processthreadsapi).
-- AppContainer isolation — `CreateAppContainerProfile`, Learn: «AppContainer Isolation».
-- UIPI / уровни целостности — Learn: «Mandatory Integrity Control», `ChangeWindowMessageFilterEx`.
-- Control Flow Guard — Learn: «Control Flow Guard»; Rust: `rustc` exploit-mitigations, `-C control-flow-guard`.
-- WebView2 — Learn: microsoft-edge/webview2 (процессная модель и песочница).
-- libmpv render API — `libmpv/render.h`, `mpv_render_context_create` (github.com/mpv-player/mpv).
+- Process mitigation policies: `SetProcessMitigationPolicy`,
+  `UpdateProcThreadAttribute` (`PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY`),
+  Microsoft Learn, win32/api/processthreadsapi.
+- AppContainer: `CreateAppContainerProfile`, Learn: «AppContainer Isolation».
+- UIPI и уровни целостности: Learn: «Mandatory Integrity Control»,
+  `ChangeWindowMessageFilterEx`.
+- Control Flow Guard: Learn: «Control Flow Guard»; Rust: `-C control-flow-guard`.
+- WebView2: Learn, microsoft-edge/webview2, процессная модель и песочница.
+- libmpv render API: `libmpv/render.h`, `mpv_render_context_create`.

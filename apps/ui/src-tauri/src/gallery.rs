@@ -1,8 +1,9 @@
-//! Community gallery client: fetch the signed-later, HTTPS-served catalog from
-//! the project's GitHub repo, download a pack, verify its SHA-256 against the
-//! catalog entry, and hand it to the existing library import. v1 has no
-//! signature (HTTPS + SHA-256 + PR moderation); offline signing is a later
-//! hardening step (see docs/research/workshop.md).
+//! Community gallery client: fetch the HTTPS-served catalog from the project's
+//! GitHub repo, download a pack, verify its SHA-256 against the catalog entry,
+//! and hand it to the existing library import. The catalog's Ed25519 signature
+//! is checked only once `gallery/pubkey.ed25519` holds a key; until then
+//! integrity rests on HTTPS, SHA-256 and PR moderation
+//! (see docs/research/catalog.md).
 //!
 //! A published pack can also be **revoked**: `revocation.json` lists ids (and
 //! optional file hashes) that must never be installed and should be pulled from
@@ -203,7 +204,7 @@ fn parse_revocation(body: &str) -> Result<Revocation, String> {
 /// Fetches the revocation list, failing open: any network/parse error yields an
 /// empty list so a hiccup never blocks the gallery. The trade-off (an attacker
 /// who can suppress this file delays revocation) is inherent to online revocation
-/// and documented in docs/research/workshop.md.
+/// and documented in docs/research/catalog.md.
 fn fetch_revocation() -> Revocation {
     match http_get_bytes(&revocation_url(), MAX_REVOCATION_BYTES) {
         Ok(bytes) => String::from_utf8(bytes)

@@ -1,9 +1,9 @@
-//! Phase-2 spike 1 (make-or-break): prove libmpv's software render API yields
-//! real pixels off-screen, with no window and no GL context — the frame a
-//! sandboxed decoder would hand to the host (docs/research/renderer-sandbox-phase2.md).
+//! Renders one video frame through libmpv's software render API, off-screen,
+//! with no window and no GL context. This is the frame a decoder running in a
+//! separate sandboxed process would hand to the host (docs/research/renderer-sandbox.md).
 //!
 //! Usage:
-//!   cargo run -p mpv --example sw_render_spike -- <libmpv.dll> <video> <out.ppm> [W H]
+//!   cargo run -p mpv --example sw_render -- <libmpv.dll> <video> <out.ppm> [W H]
 //!
 //! Writes one rendered frame as a binary PPM (P6) so it can be inspected.
 

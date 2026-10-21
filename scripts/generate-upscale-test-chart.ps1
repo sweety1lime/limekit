@@ -1,5 +1,5 @@
 param(
-    [string]$Output = "assets/test/phase1-upscale-source.png"
+    [string]$Output = "assets/test/upscale-source.png"
 )
 
 $ErrorActionPreference = "Stop"
