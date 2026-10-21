@@ -23,7 +23,7 @@ moderation — see [gallery/README.md](gallery/README.md). *(Только вид
 
 ## Building from source — *сборка*
 
-See the [README](README.md) ([Русский](README.ru.md)): run the `scripts\fetch-*`
+See the [README](README.md) ([English](README.en.md)): run the `scripts\fetch-*`
 scripts once, then `scripts\build-portable.ps1`.
 
 ## Code conventions (for code PRs)

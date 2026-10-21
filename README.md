@@ -1,203 +1,201 @@
 # LimeKit
 
-**English** · [Русский](README.ru.md)
+**Русский** · [English](README.en.md)
 
-A Windows customization kit you can undo.
+Набор для настройки Windows, который можно отменить.
 
-I started this as a live wallpaper app called LimeWall. The wallpapers worked out
-well and I use them every day, but somewhere along the way I realised the picture
-on my desktop wasn't the only thing I wanted to change about Windows. So LimeWall
-became LimeKit: same engine underneath, but now it's a kit that will grow.
+Я начинал это как приложение для живых обоев — оно называлось LimeWall. Обои
+получились, я ими пользуюсь каждый день, но по ходу дела понял, что менять в
+Windows хочется не только картинку на рабочем столе. Так LimeWall стал LimeKit:
+тот же движок внутри, но теперь это набор, который будет расти.
 
-Wallpapers are the first module and the only finished one. Everything else is in
-the plans below, and I've written them honestly — what's done is done, what
-isn't, isn't.
+Обои — первый модуль и единственный готовый. Остальное в планах ниже, и я
+написал их честно: что сделано, то сделано, что нет — то нет.
 
-<!-- GIF GOES HERE: live wallpaper behind the icons with the app window beside
-     it. Drop the file in docs/media/ and replace this comment with
+<!-- СЮДА GIF: живые обои за иконками + окно приложения рядом.
+     Положи файл в docs/media/ и замени этот комментарий на
      ![LimeKit](docs/media/limekit.gif) -->
 
-## What works today
+## Что уже работает
 
-**Live wallpapers** behind the desktop icons — video, GIF, images, HTML pages
-and glTF 3D models.
+**Живые обои** за иконками рабочего стола — видео, GIF, картинки, HTML-страницы
+и 3D-модели glTF.
 
-- Hardware decoding through libmpv and d3d11va. On my machine 1080p H.264 sits
-  between 1.5% and 5% CPU, and exactly 0% when paused.
-- GPU upscaling when the source is smaller than the monitor: lanczos, FSR, or
-  Anime4K for drawn content. If the source already matches the monitor, no
-  shader runs — there's no reason to heat the GPU for nothing.
-- Per-monitor quality, volume and playlist settings. Playlists keep rotating
-  after you close the window.
-- Wallpapers pause themselves when they shouldn't be running: a fullscreen game
-  in focus, a locked screen, the display off, the laptop on battery. I tested it
-  against a real game — the pause lands within a couple of seconds and the CPU
-  drops to zero. A separate watchdog also stops any wallpaper that runs the CPU
-  hot for too long.
-- `.limekit` packages — export anything from your library as one file, install
-  someone else's with a double-click. Older `.wpk` files from 0.1 still open.
-- A community catalog inside the app; downloads are checksum-verified.
+- Декодирование на видеокарте через libmpv и d3d11va. На моём железе 1080p
+  H.264 держится в пределах 1,5–5% процессора, а на паузе — ровно 0%.
+- Апскейл на GPU, если исходник меньше монитора: lanczos, FSR или Anime4K для
+  рисованного. Если исходник уже в разрешении монитора, шейдеры не включаются —
+  греть видеокарту без причины незачем.
+- Свои настройки качества, звука и плейлиста на каждый монитор. Плейлисты
+  крутятся дальше, даже когда окно закрыто.
+- Обои сами уходят в паузу, когда им не время: полноэкранная игра в фокусе,
+  заблокированный экран, выключенный дисплей, работа от батареи. Проверял на
+  настоящей игре — пауза срабатывает за пару секунд, процессор падает в ноль.
+  Отдельный сторож глушит обои, которые греют процессор дольше, чем следует.
+- Пакеты `.limekit` — любые обои из библиотеки можно выложить одним файлом, а чужие
+  поставить двойным кликом. Старые `.wpk` из версии 0.1 тоже открываются.
+- Каталог сообщества прямо в приложении: скачанное проверяется по контрольной
+  сумме.
 
-## Where this is going
+## Куда это идёт
 
-In order, not by importance:
+Планы по порядку, а не по важности:
 
-1. **System tweaks** — toggles for the taskbar, File Explorer, appearance and
-   privacy. Each one shows exactly what it will change before it does, and
-   reverts in one click. The whole change-journal design exists for this.
-2. **Themes** — cursors, sounds, accent colours, folder icons. Build a set,
-   share it as a file, put everything back the way it was.
-3. **Widgets and a dock** — a clock, a system monitor, notes on the desktop; a
-   dock of my own through the documented AppBar API, without touching the
-   system taskbar.
+1. **Твики системы** — переключатели для панели задач, Проводника, внешнего
+   вида и приватности. Каждый с предпросмотром «что именно изменится» и
+   откатом в один клик. Ради этого затевалась вся история с журналом изменений.
+2. **Темы** — курсоры, звуки, акценты, иконки папок. Собрать набор, поделиться
+   файлом, вернуть как было.
+3. **Виджеты и своя док-панель** — часы, монитор системы, заметки на рабочем
+   столе; своя панель через документированный AppBar API, без влезания в
+   системную.
 
-I'm not promising dates: this is spare-time work, around ten hours a week. But
-that's the order, and it won't change quietly — watch the releases.
+Сроков не обещаю: я делаю это в свободное время, часов десять в неделю. Но
+порядок именно такой, и он не поменяется молча — следи за релизами.
 
-## What LimeKit does not do
+## Чего LimeKit не делает
 
-This isn't a list of shortcomings. These are deliberate choices, and most
-Windows customization tools break systems through exactly what's absent here.
+Это не список недостатков, а решения, принятые осознанно. Большинство
+«кастомайзеров» для Windows ломают систему именно тем, чего здесь нет.
 
-- **No code injection into system processes.** Not `explorer.exe`, not
-  `dwm.exe`, nowhere. That takes away the usual reasons for anti-cheat trouble
-  and for Explorer crash loops after a Windows update. It doesn't make LimeKit
-  immune to updates, though: drawing behind the icons relies on an
-  undocumented trick, and in 2024–2025 Microsoft held back the 24H2 upgrade on
-  PCs with wallpaper apps. Details in
-  [the layer behind the icons](docs/research/workerw.md).
-- **No patching of system files.** `System32` stays the way Microsoft shipped
-  it. SFC and DISM will find nothing to complain about.
-- **Nothing gets weakened.** Defender, UAC, SmartScreen, Windows Update —
-  none of my business. Any "optimizer" that touches those makes you less safe.
-- **No administrator rights.** Everything lives in your own profile:
-  `%APPDATA%` and `HKCU`. Other users of the machine never see LimeKit.
-- **No code fetched from the network.** An update is a release you download
-  yourself, not a script that arrives at runtime.
+- **Не внедряется в системные процессы.** Ни в `explorer.exe`, ни в `dwm.exe`,
+  никуда. Так пропадают обычные причины проблем с античитами и падений
+  Проводника по кругу после обновления Windows. Но от обновлений это не
+  страхует полностью: рисовать за иконками приходится недокументированным
+  приёмом, а в 2024–2025 годах Microsoft придерживала обновление до 24H2 на
+  компьютерах с приложениями живых обоев. Подробнее — в заметке про
+  [слой за иконками](docs/research/workerw.md).
+- **Не патчит системные файлы.** `System32` остаётся таким, каким его
+  поставила Microsoft. SFC и DISM не найдут к чему придраться.
+- **Не отключает защиту.** Defender, UAC, SmartScreen, обновления — не мои
+  дела. Любой «оптимизатор», который это трогает, делает тебя уязвимее.
+- **Не просит прав администратора.** Всё живёт в твоём профиле: `%APPDATA%`
+  и `HKCU`. Другим пользователям машины LimeKit не видно.
+- **Не подгружает свой код из сети.** Обновление — это новый релиз, который ты
+  скачиваешь сам, а не скрипт, прилетевший на ходу.
 
-One honest exception: a web wallpaper is a real HTML page and JavaScript does
-run in it. So it gets a strict CSP that closes off network access, and
-installing such a package asks for confirmation first. How that works, and what
-I deliberately don't try to detect, is in the
-[security model](docs/research/security-model.md).
+Отдельно и честно про веб-обои: это настоящая HTML-страница, и в ней работает
+JavaScript. Поэтому им закрыт выход в интернет строгим CSP, а установка такого
+пакета спрашивает подтверждение. Как это устроено и чего я сознательно не
+пытаюсь поймать — в [модели безопасности](docs/research/security-model.md).
 
-## What goes online
+## Что уходит в сеть
 
-No telemetry, no analytics, no crash reports sent anywhere. LimeKit talks to the
-network in two cases, and only to GitHub (`raw.githubusercontent.com`,
-`github.com`, `objects.githubusercontent.com`):
+Никакой телеметрии, аналитики и отправки отчётов о сбоях. В сеть LimeKit ходит
+в двух случаях и только на GitHub (`raw.githubusercontent.com`, `github.com`,
+`objects.githubusercontent.com`):
 
-- when you open the **Catalog** tab, to fetch the list of wallpapers and the
-  ones you choose to download;
-- when the window starts, but only if your library has wallpapers from the
-  catalog: it fetches the revocation list so a wallpaper pulled for being
-  harmful gets removed from your machine too.
+- когда ты открываешь вкладку **«Каталог»** — за списком обоев и за теми,
+  которые ты решил скачать;
+- при запуске окна, но только если в библиотеке есть обои из каталога: за
+  списком отзыва, чтобы обои, снятые из каталога как вредные, удалились и у
+  тебя.
 
-The diagnostics report in settings is copied to your clipboard when you press
-the button. Where it goes after that is up to you.
+Отчёт диагностики в настройках копируется в буфер обмена по кнопке. Куда он
+пойдёт дальше, решаешь ты.
 
-## Install
+## Установка
 
-Windows 10 or 11, 64-bit. Nothing else to install — it's all in the archive.
+Windows 10 или 11, 64 бита. Больше ничего ставить не нужно — всё в архиве.
 
-1. Download the archive from
-   [Releases](https://github.com/sweety1lime/limekit/releases).
-2. Unpack it anywhere.
-3. Run `LimeKit.exe`.
+1. Скачай архив из [релизов](https://github.com/sweety1lime/limekit/releases).
+2. Распакуй в любую папку.
+3. Запусти `LimeKit.exe`.
 
-Nothing is written into the system until you turn on autostart yourself with the
-checkbox in settings. To uninstall, delete the folder.
+Приложение не прописывается в систему, пока ты сам не включишь автозапуск
+галочкой в настройках. Удаляется удалением папки.
 
-LimeKit has no website and no mirrors. The only place to download it is
-[Releases](https://github.com/sweety1lime/limekit/releases) of this
-repository. Fake download sites for popular Windows tools regularly outrank the
-real ones in search results, so if some site offers "LimeKit download", it isn't
-me.
+У LimeKit нет сайта и нет зеркал. Скачать его можно только из
+[релизов](https://github.com/sweety1lime/limekit/releases) этого репозитория.
+Поддельные сайты популярных утилит для Windows регулярно обгоняют настоящие в
+поиске, так что если какой-то сайт предлагает «скачать LimeKit» — это не я.
 
-**About the Windows warning.** Releases aren't signed with a certificate yet, so
-the first launch shows "Windows protected your PC". That's not a sign of a virus
-— it's the absence of a paid certificate, which costs money and isn't available
-everywhere. The SHA-256 of the archive and of the programs inside it are in the release
-notes and in a `SHA256SUMS.txt` next to the archive, so you can check you
-downloaded my build. On Windows 11 with Smart App Control turned on, an unsigned
-build may not start at all. When signing happens, I'll say so in a release.
+**Про предупреждение Windows.** Релизы пока не подписаны сертификатом, поэтому
+при первом запуске появится «Windows защитила ваш компьютер». Это не признак
+вируса, а отсутствие у меня платного сертификата: он стоит денег и выдаётся не
+везде. Хеши SHA-256 архива и программ внутри я публикую в описании релиза и в файле
+`SHA256SUMS.txt` рядом с архивом — сверь, если хочешь убедиться, что скачал
+именно мою сборку. На Windows 11 с включённым Smart App Control неподписанная
+сборка может не запуститься вовсе. Когда появится подпись, напишу об этом в
+релизе.
 
-**Upgrading from LimeWall 0.1.** Just run LimeKit. It asks the old version to
-quit, moves your library and settings from `%APPDATA%\LimeWall` to
-`%APPDATA%\LimeKit`, and takes over autostart if you had it on. Any `.wpk` files
-you've already shared still open. If the old version is frozen and won't quit,
-close it from the tray and start LimeKit again.
+**Обновление с LimeWall 0.1.** Просто запусти LimeKit. Он сам попросит старую
+версию закрыться, перенесёт библиотеку и настройки из `%APPDATA%\LimeWall` в
+`%APPDATA%\LimeKit` и заберёт автозапуск, если он был включён. Файлы `.wpk`,
+которые ты успел кому-то отправить, открываются как раньше. Если старая версия
+зависла и не закрылась — закрой её через трей и запусти LimeKit ещё раз.
 
-## How it's built
+## Как это устроено
 
-The architecture in short: two processes. A long-lived daemon owns the wallpaper
-surfaces and playback; the Tauri window is control only, and closing it doesn't
-stop the wallpapers. They talk over local IPC. Everything platform-specific sits
-behind the `WallpaperHost` trait in `crates/platform`.
+Коротко про архитектуру: два процесса. Долгоживущий демон владеет поверхностями
+обоев и воспроизведением, окно на Tauri — только управление, и его можно закрыть
+без остановки обоев. Общаются через локальный IPC. Всё платформенно-специфичное
+спрятано за трейтом `WallpaperHost` в `crates/platform`.
 
-If you care about what's behind the button, I keep notes, including the options
-I rejected and why. They're in Russian:
+Если тебе интересна не только кнопка, но и то, что за ней, — у меня есть
+заметки. Там и решения, и отвергнутые варианты с причинами:
 
-- [Architecture](docs/research/architecture.md) — the daemon, the window and
-  the IPC protocol between them.
-- [Security model](docs/research/security-model.md) — why I bet on containment
-  instead of trying to detect hostile content.
-- [The layer behind the icons](docs/research/workerw.md) — how you draw behind
-  desktop icons at all, and what Windows 11 24H2 changed.
-- [Renderer isolation](docs/research/renderer-sandbox.md) — why a full
-  AppContainer didn't fit, and what I do instead.
-- [Community catalog](docs/research/catalog.md) — moderation, checksums,
-  revocation.
-- [Politeness](docs/research/politeness.md) — when and how wallpapers pause.
+- [Архитектура](docs/research/architecture.md) — демон, окно и протокол IPC
+  между ними.
+- [Модель безопасности](docs/research/security-model.md) — почему я ставлю на
+  изоляцию, а не на попытки распознать вредоносное.
+- [Слой за иконками](docs/research/workerw.md) — как вообще рисовать позади
+  иконок рабочего стола и что поменялось в Windows 11 24H2.
+- [Изоляция рендерера](docs/research/renderer-sandbox.md) — почему
+  AppContainer на весь процесс не подошёл и что вместо него.
+- [Каталог сообщества](docs/research/catalog.md) — модерация, контрольные
+  суммы, отзыв пакетов.
+- [Вежливость](docs/research/politeness.md) — когда и как обои уходят в паузу.
 
-## Decisions and trade-offs
+## Решения и компромиссы
 
-**Two processes instead of one app.** The wallpapers live in a daemon, and the
-window is a separate program you can close at any time; the tray belongs to the
-daemon too. The price is two processes and a protocol between them that has to
-survive an old window talking to a new daemon.
+**Два процесса вместо одного приложения.** Обои живут в демоне, а окно — отдельная
+программа, которую можно закрыть когда угодно; трей тоже принадлежит демону.
+Цена — два процесса и протокол между ними, который должен выдерживать разговор
+старого окна с новым демоном.
 
-**An undocumented trick instead of an official API.** Windows has no API for
-drawing behind the desktop icons, so LimeKit uses the same `WorkerW` trick as
-every other wallpaper app, with two search paths (before and after 24H2) and a
-watchdog that re-attaches the window when Explorer rebuilds the desktop. It can
-break with any Windows update, and I can only promise to fix it quickly, not
-that it won't happen.
+**Недокументированный приём вместо официального API.** У Windows нет API, чтобы
+рисовать за иконками рабочего стола, поэтому LimeKit использует тот же приём с
+`WorkerW`, что и все приложения живых обоев: два пути поиска (до 24H2 и после) и
+сторож, который заново пристраивает окно, когда Проводник пересобирает рабочий
+стол. Это может сломаться с любым обновлением Windows, и пообещать я могу только
+быстро чинить, а не что поломок не будет.
 
-**My own thin libmpv bindings instead of the `libmpv2` crate.** About 17
-function declarations, loaded at runtime with `libloading`. The renderer builds
-without the dll, and `libmpv-2.dll` stays a separate file you can replace, which
-is what its LGPL license asks for. The price: when mpv's API changes, I update
-the declarations by hand.
+**Свои тонкие объявления libmpv вместо крейта `libmpv2`.** Около 17 функций,
+загрузка в рантайме через `libloading`. Рендерер собирается без dll, а
+`libmpv-2.dll` остаётся отдельным файлом, который можно заменить, — этого и
+требует её лицензия LGPL. Цена: когда API mpv меняется, объявления я обновляю
+руками.
 
-**Containment instead of detection.** I don't try to scan wallpapers for
-malware; a determined author would get past any scanner. Instead a web wallpaper
-has no network and no bridge to native code, and a watchdog pauses any wallpaper
-that keeps the CPU busy. The catalog only accepts video and images. The price:
-wallpapers that genuinely need the network (weather, live data) aren't possible.
+**Изоляция вместо распознавания.** Я не пытаюсь искать в обоях вредоносный код:
+упорный автор обойдёт любой сканер. Вместо этого у веб-обоев нет сети и моста к
+нативному коду, а сторож ставит на паузу любые обои, которые долго грузят
+процессор. Каталог принимает только видео и картинки. Цена: обои, которым сеть
+действительно нужна (погода, живые данные), сделать нельзя.
 
-**Process mitigations instead of a full sandbox.** A process in an AppContainer
-can't attach its window to Explorer's desktop window, so the renderer can't be
-locked down as a whole. It runs with the mitigations that don't break libmpv and
-WebView2, plus Control Flow Guard. Moving the video decoder into a separate
-sandboxed process is designed, but it's weeks of work and isn't done.
+**Митигации процесса вместо полной песочницы.** Процесс в AppContainer не может
+пристроить своё окно к окну рабочего стола Проводника, так что запереть рендерер
+целиком нельзя. Он работает с теми митигациями Windows, которые не ломают libmpv
+и WebView2, плюс Control Flow Guard. Вынос видеодекодера в отдельный процесс в
+песочнице спроектирован, но это недели работы, и он не сделан.
 
-**GitHub pull requests instead of a server for the catalog.** No backend to pay
-for or keep alive, and every pack gets reviewed before anyone sees it. The
-price: a new wallpaper appears only after I've reviewed it.
+**Pull Request на GitHub вместо сервера для каталога.** Не нужно платить за
+бэкенд и следить, чтобы он был жив, а каждый пакет проходит ревью до того, как
+его кто-то увидит. Цена: новые обои появляются только после того, как я их
+посмотрю.
 
-**A portable zip instead of an installer, no auto-update.** Nothing is written
-to the system until you turn on autostart, and removing LimeKit means deleting a
-folder. The price: the unsigned build gets a SmartScreen warning, and updates
-are manual.
+**Переносимый архив вместо установщика, без автообновления.** В систему ничего
+не пишется, пока ты не включишь автозапуск, а удалить LimeKit — значит удалить
+папку. Цена: неподписанная сборка получает предупреждение SmartScreen, а
+обновляться приходится вручную.
 
-**No telemetry.** I don't know how many people use LimeKit or what crashes for
-them. Bugs reach me only through issues with the diagnostics report attached.
+**Без телеметрии.** Я не знаю, сколько людей пользуется LimeKit и что у них
+падает. Об ошибках я узнаю только из issues с приложенным отчётом диагностики.
 
-## Build from source
+## Сборка из исходников
 
-You'll need Rust and Node. First, once — the playback runtimes (LGPL builds) and
-their license texts; details in [docs/third-party.md](docs/third-party.md):
+Нужны Rust и Node. Сначала один раз — рантаймы воспроизведения (сборки LGPL) и
+тексты их лицензий, подробности в [docs/third-party.md](docs/third-party.md):
 
 ```
 scripts\fetch-libmpv.ps1
@@ -205,7 +203,7 @@ scripts\fetch-ffmpeg.ps1
 scripts\fetch-licenses.ps1
 ```
 
-Daemon and CLI:
+Демон и CLI:
 
 ```
 cargo run -p renderer -- play video.mp4 --monitor 0 --quality max
@@ -214,7 +212,7 @@ cargo run -p renderer -- ctl play video.mp4 --monitor 0 --quality max
 cargo run -p renderer -- ctl pause | resume | volume 30 | status | shutdown
 ```
 
-Control window:
+Окно управления:
 
 ```
 cd apps/ui
@@ -222,32 +220,30 @@ npm install
 npm run tauri dev
 ```
 
-Windows PowerShell 5 has no `&&`, so run the commands one per line. The first
-`npm run tauri dev` compiles the whole Tauri stack and can think for several
-minutes.
+В Windows PowerShell 5 нет `&&`, так что команды по одной на строку. Первый
+`npm run tauri dev` собирает весь стек Tauri и может думать несколько минут.
 
-`tauri dev` serves the frontend from a dev server and can't exercise the real
-lifecycle: closing the window, reopening from the tray, autostart, a reboot. For
-that, build the portable folder — every binary side by side, nothing required:
+`tauri dev` отдаёт фронтенд с дев-сервера и не проверяет настоящий жизненный
+цикл: закрыть окно, открыть из трея, автозапуск, перезагрузку. Для этого собери
+переносимую папку — все бинарники рядом, ничего не требуется:
 
 ```
 scripts\build-portable.ps1
 ```
 
-The result lands in `dist/LimeKit/`; run `dist\LimeKit\LimeKit.exe`.
+Результат в `dist/LimeKit/`, запускать `dist\LimeKit\LimeKit.exe`.
 
-## Licensing
+## Лицензии
 
-LimeKit's own code is [GPL-3.0](LICENSE).
+Код LimeKit — [GPL-3.0](LICENSE).
 
-libmpv and ffmpeg are used as **LGPL** builds, dynamically linked. The FSR and
-Anime4K shaders are MIT and BSD. Pinned versions and sources are listed in
-[docs/third-party.md](docs/third-party.md) and
+libmpv и ffmpeg подключаются как **LGPL**-сборки, динамически. Шейдеры FSR и
+Anime4K — MIT и BSD. Зафиксированные версии и источники перечислены в
+[docs/third-party.md](docs/third-party.md) и
 [licenses/THIRD-PARTY-NOTICES.md](licenses/THIRD-PARTY-NOTICES.md).
 
-## Bugs and ideas
+## Баги и идеи
 
-Found something broken?
-[Open an issue](https://github.com/sweety1lime/limekit/issues). The bug template
-asks for the diagnostics report from the app (there's a button in settings) and
-your Windows version — without those I usually can't reproduce the problem.
+Нашёл поломку — [открой issue](https://github.com/sweety1lime/limekit/issues).
+В шаблоне багов я прошу приложить отчёт диагностики из приложения (кнопка в
+настройках) и версию Windows: без них я чаще всего не смогу повторить проблему.
