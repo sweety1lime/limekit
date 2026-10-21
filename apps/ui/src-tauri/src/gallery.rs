@@ -112,7 +112,9 @@ fn parse_pubkey(content: &str) -> Option<Vec<u8>> {
         .lines()
         .map(str::trim)
         .find(|line| !line.is_empty() && !line.starts_with('#'))?;
-    let bytes = base64::engine::general_purpose::STANDARD.decode(line).ok()?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(line)
+        .ok()?;
     (bytes.len() == 32).then_some(bytes)
 }
 
@@ -320,7 +322,10 @@ pub async fn gallery_download(pack: GalleryPack) -> Result<library::LibraryItem,
         // A cached catalog on the panel could still offer a since-revoked pack;
         // re-check before installing.
         if is_revoked(&pack, &fetch_revocation()) {
-            return Err(format!("«{}» отозван и не может быть установлен", pack.name));
+            return Err(format!(
+                "«{}» отозван и не может быть установлен",
+                pack.name
+            ));
         }
         let bytes = http_get_bytes(&pack.download_url, MAX_PACK_BYTES)?;
         let actual = sha256_hex(&bytes);
@@ -331,12 +336,11 @@ pub async fn gallery_download(pack: GalleryPack) -> Result<library::LibraryItem,
             ));
         }
         // Import goes through the same validated `.wpk` path as a local import.
-        let temp =
-            std::env::temp_dir().join(format!(
-                "limekit-gallery-{}.{}",
-                sanitize(&pack.id),
-                wpk::PACK_EXT
-            ));
+        let temp = std::env::temp_dir().join(format!(
+            "limekit-gallery-{}.{}",
+            sanitize(&pack.id),
+            wpk::PACK_EXT
+        ));
         std::fs::write(&temp, &bytes).map_err(|error| error.to_string())?;
         let result = library::Library::default_location().and_then(|lib| lib.import(&temp));
         let _ = std::fs::remove_file(&temp);
@@ -420,14 +424,28 @@ mod tests {
 
     #[test]
     fn revocation_parses_and_defaults_to_empty() {
-        assert!(parse_revocation(r#"{"version":1,"revoked":[]}"#).unwrap().revoked.is_empty());
+        assert!(
+            parse_revocation(r#"{"version":1,"revoked":[]}"#)
+                .unwrap()
+                .revoked
+                .is_empty()
+        );
         // A missing `revoked` array (or an unknown extra field) still parses.
-        assert!(parse_revocation(r#"{"version":1}"#).unwrap().revoked.is_empty());
+        assert!(
+            parse_revocation(r#"{"version":1}"#)
+                .unwrap()
+                .revoked
+                .is_empty()
+        );
     }
 
     #[test]
     fn filter_drops_revoked_by_id_and_hash_keeps_others() {
-        let packs = vec![pack("good", "AA"), pack("bad-id", "BB"), pack("bad-hash", "CC")];
+        let packs = vec![
+            pack("good", "AA"),
+            pack("bad-id", "BB"),
+            pack("bad-hash", "CC"),
+        ];
         let revocation = parse_revocation(
             r#"{"version":1,"revoked":[
                 {"id":"bad-id"},
@@ -464,8 +482,7 @@ mod tests {
     #[test]
     fn verify_ed25519_accepts_rfc8032_vector_and_rejects_tampering() {
         // RFC 8032 section 7.1, test vector 1 (empty message).
-        let public_key =
-            hex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
+        let public_key = hex("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
         let signature = hex(
             "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
         );

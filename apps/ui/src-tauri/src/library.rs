@@ -53,8 +53,8 @@ pub struct Library {
 impl Library {
     /// Library in the per-user data directory (%APPDATA%/LimeKit/library).
     pub fn default_location() -> Result<Self, String> {
-        let data = platform::appdata::user_dir()
-            .ok_or("no per-user data directory on this system")?;
+        let data =
+            platform::appdata::user_dir().ok_or("no per-user data directory on this system")?;
         Ok(Self {
             root: data.join("library"),
         })

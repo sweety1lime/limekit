@@ -1832,7 +1832,10 @@ mod tests {
 
     #[test]
     fn a_limewall_autostart_entry_is_carried_over_or_dropped() {
-        assert_eq!(legacy_autostart_action(None, None), LegacyAutostart::Nothing);
+        assert_eq!(
+            legacy_autostart_action(None, None),
+            LegacyAutostart::Nothing
+        );
         assert_eq!(
             legacy_autostart_action(None, Some("\"new\"")),
             LegacyAutostart::Nothing

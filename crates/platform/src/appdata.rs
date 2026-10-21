@@ -237,7 +237,10 @@ mod tests {
     fn moves_the_legacy_directory_with_its_contents() {
         let base = tempfile::tempdir().unwrap();
         let base = base.path();
-        write(&base.join("LimeWall").join("library").join("index.json"), "[]");
+        write(
+            &base.join("LimeWall").join("library").join("index.json"),
+            "[]",
+        );
 
         let outcome = migrate_legacy(base);
 
@@ -305,8 +308,16 @@ mod tests {
 
         let outcome = migrate_legacy(base);
 
-        assert_eq!(outcome, Migration::Moved { from: legacy.clone() });
-        assert_eq!(read(&current.join("library").join("index.json")), "[\"item\"]");
+        assert_eq!(
+            outcome,
+            Migration::Moved {
+                from: legacy.clone()
+            }
+        );
+        assert_eq!(
+            read(&current.join("library").join("index.json")),
+            "[\"item\"]"
+        );
         assert_eq!(read(&current.join("wallpapers.json")), "state");
         assert_eq!(read(&current.join("daemon.log")), "new log");
         assert!(!legacy.exists());

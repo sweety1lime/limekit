@@ -147,7 +147,10 @@ mod tests {
         assert!(register_under(&sandbox.0, &exe()).unwrap());
 
         for ext in wpk::ACCEPTED_EXTS {
-            assert_eq!(sandbox.get(&format!(".{ext}"), "").as_deref(), Some(PROG_ID));
+            assert_eq!(
+                sandbox.get(&format!(".{ext}"), "").as_deref(),
+                Some(PROG_ID)
+            );
             assert_eq!(
                 sandbox
                     .get(&format!(r".{ext}\OpenWithProgids"), PROG_ID)

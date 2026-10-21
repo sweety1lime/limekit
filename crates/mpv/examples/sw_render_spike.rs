@@ -25,7 +25,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the CPU so this works on a headless box.
     let player = Player::new(
         api,
-        &[("vo", "libmpv"), ("hwdec", "no"), ("audio", "no"), ("terminal", "no")],
+        &[
+            ("vo", "libmpv"),
+            ("hwdec", "no"),
+            ("audio", "no"),
+            ("terminal", "no"),
+        ],
     )?;
     let render = RenderContext::new_sw(&player)?;
 

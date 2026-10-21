@@ -24,9 +24,9 @@ pub fn take_over_legacy_data() -> Option<String> {
     let migration = platform::appdata::migrate_user_data();
     match (stopped, migration) {
         (None, platform::appdata::Migration::NothingToDo) => None,
-        (Some(stopped), migration) => {
-            Some(format!("old LimeWall daemon: {stopped:?}; data directory: {migration}"))
-        }
+        (Some(stopped), migration) => Some(format!(
+            "old LimeWall daemon: {stopped:?}; data directory: {migration}"
+        )),
         (None, migration) => Some(format!("data directory: {migration}")),
     }
 }

@@ -159,14 +159,10 @@ mod tests {
         // away from their data directory altogether: on startup the daemon
         // would otherwise migrate a real LimeWall library and stop a running
         // LimeWall daemon. The variables are inherited by the spawned process.
-        let state = std::env::temp_dir().join(format!(
-            "limekit-ui-test-state-{}.json",
-            std::process::id()
-        ));
-        let data = std::env::temp_dir().join(format!(
-            "limekit-ui-test-data-{}",
-            std::process::id()
-        ));
+        let state =
+            std::env::temp_dir().join(format!("limekit-ui-test-state-{}.json", std::process::id()));
+        let data =
+            std::env::temp_dir().join(format!("limekit-ui-test-data-{}", std::process::id()));
         // SAFETY: no other thread in this test binary touches these variables.
         unsafe {
             std::env::set_var("LIMEKIT_STATE", &state);
