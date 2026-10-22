@@ -99,13 +99,7 @@ the button. Where it goes after that is up to you.
 ## Install
 
 Windows 10 or 11, 64-bit. Nothing else to install — it's all in the archive.
-
-0.2.0 is the exception: it still needs a graphics driver with Vulkan support.
-The libmpv and ffmpeg in the archive won't start without the system
-`vulkan-1.dll`, which the driver installs, and old integrated Intel HD
-graphics, virtual machines and the Microsoft Basic Display Adapter may not have
-it. To check, look for `C:\Windows\System32\vulkan-1.dll`. The next version
-brings the Vulkan loader along.
+(Versions before 0.2.1 also needed a graphics driver with Vulkan support.)
 
 1. Download the archive from
    [Releases](https://github.com/sweety1lime/limekit/releases).
@@ -129,7 +123,11 @@ the first launch shows "Windows protected your PC". That's not a sign of a virus
 — it's the absence of a paid certificate, which costs money and isn't available
 everywhere. The SHA-256 of the archive and of the programs inside it are in the release
 notes and in a `SHA256SUMS.txt` next to the archive, so you can check you
-downloaded my build. On Windows 11 with Smart App Control turned on, an unsigned
+downloaded my build. Since 0.2.1, releases are built by GitHub Actions, and
+with the [GitHub CLI](https://cli.github.com/) installed,
+`gh attestation verify LimeKit-<version>-win64.zip -R sweety1lime/limekit`
+shows which workflow and commit produced the archive. On Windows 11 with Smart
+App Control turned on, an unsigned
 build may not start at all. When signing happens, I'll say so in a release.
 
 **Upgrading from LimeWall 0.1.** Just run LimeKit. It asks the old version to
@@ -213,6 +211,14 @@ and after that removing LimeKit means deleting a folder.
 The price: the unsigned build gets a SmartScreen warning, updates are manual,
 and after you move the folder autostart points at the old place until you turn
 it off and on again (the window fixes the association itself when it starts).
+
+**GitHub Actions builds the release, not my laptop.** Since 0.2.1 the release
+archive is built on a clean machine without caches, through `cargo auditable`,
+passes a smoke test on Windows Server 2022 and 2025, and gets a build
+attestation and an SBOM. Anyone can check it was built from this repository
+rather than on a computer nobody looked into. The price: a release build takes
+about 20 minutes, and Windows Server isn't Windows 11, so wallpapers on 11 are
+still checked by hand.
 
 **No telemetry.** I don't know how many people use LimeKit or what crashes for
 them. Bugs reach me only through issues with the diagnostics report attached.

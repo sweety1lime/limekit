@@ -1,9 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — no Vulkan driver needed, and a clean way out
+
+Wallpapers now play on machines whose graphics driver has no Vulkan, LimeKit
+can remove everything it put outside its folder, and the release is the first
+one built and attested by GitHub Actions.
 
 ### Added
 
+- **The release is built by GitHub Actions and attested.**
+  `gh attestation verify LimeKit-0.2.1-win64.zip -R sweety1lime/limekit`
+  shows which workflow and commit produced the zip, and works on each of the
+  three programs inside it too. An SPDX SBOM is attached to the release.
 - **Settings → "Убрать LimeKit из системы".** It stops the wallpapers, removes
   autostart and the `.limekit` association (only our part of `.wpk`, if another
   program owns it), and optionally deletes the library, settings and the
@@ -30,7 +38,6 @@
 - `scripts/fetch-vulkan-loader.ps1` fetches the loader, pinned by hash and
   mirrored with libmpv; `build-portable.ps1` needs it. `fetch-licenses.ps1`
   adds the Apache 2.0 text the loader's license requires.
-
 - GitHub Actions (`.github/workflows/build.yml`) checks every push: format,
   clippy, tests, the type check, the portable build, and
   `scripts/smoke-test.ps1` on the unpacked zip on Windows Server 2022 and 2025.
