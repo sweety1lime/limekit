@@ -65,20 +65,17 @@ jobs:
       - name: Install cargo-auditable
         run: cargo install cargo-auditable --locked --version 0.7.7
 
-      - name: Fetch libmpv, ffmpeg and license texts
+      - name: Fetch libmpv, ffmpeg, the Vulkan loader and license texts
         shell: pwsh
         run: |
           ./scripts/fetch-libmpv.ps1
           ./scripts/fetch-ffmpeg.ps1
+          ./scripts/fetch-vulkan-loader.ps1
           ./scripts/fetch-licenses.ps1
 
       - name: Install frontend dependencies
         working-directory: apps/ui
         run: npm ci
-
-      # The libmpv test loads the real DLL, which needs vulkan-1.dll.
-      - id: vulkan
-        uses: ./.github/actions/vulkan-loader
 
       - name: Format
         run: |
@@ -95,10 +92,11 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Tests
-        env:
-          VULKAN_DIR: ${{ steps.vulkan.outputs.dir }}
         run: |
-          export PATH="$PATH:$(cygpath -u "$VULKAN_DIR")"
+          # The runner has no GPU driver, so no vulkan-1.dll, which the libmpv
+          # and ffmpeg tests load from third_party/ rather than a portable
+          # folder. The smoke job below gets no such help.
+          export PATH="$PATH:$PWD/third_party/vulkan/unpacked"
           cargo test --workspace --locked
           # The UI's end-to-end daemon test starts target/debug/renderer.exe
           # and skips itself when it is missing, which cargo test alone leaves.
@@ -149,16 +147,11 @@ jobs:
         shell: pwsh
         run: Expand-Archive (Get-Item dist/LimeKit-*-win64.zip) -DestinationPath unpacked
 
-      - id: vulkan
-        uses: ./.github/actions/vulkan-loader
-
+      # No GPU driver here, hence no vulkan-1.dll in System32: the zip has to
+      # bring its own loader and pick it up, which the test checks.
       - name: Smoke test
         shell: pwsh
-        env:
-          VULKAN_DIR: ${{ steps.vulkan.outputs.dir }}
-        run: |
-          $env:PATH += ";$env:VULKAN_DIR"
-          ./scripts/smoke-test.ps1 -Dir unpacked/LimeKit
+        run: ./scripts/smoke-test.ps1 -Dir unpacked/LimeKit
 
   release:
     needs: [build, smoke]
