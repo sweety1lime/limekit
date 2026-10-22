@@ -7,7 +7,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use platform::system::WindowsVersion;
-use serde::{Deserialize, Deserializer, de};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 /// A build with an optional update revision: `26100` or `26100.3915`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -69,7 +69,7 @@ impl<'de> Deserialize<'de> for Build {
 
 /// Editions as their policies differ: many settings Microsoft documents work
 /// only on Enterprise and Education.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Edition {
     Home,

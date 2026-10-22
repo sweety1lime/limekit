@@ -2,9 +2,23 @@
 
 ## Unreleased
 
+### Added
+
+- **Tweaks.** A "Твики" screen next to the catalog lists the tweaks with what
+  this Windows is (version, build, edition), whether each one fits it and was
+  checked on this build, where its values come from, and when the change shows.
+  Before anything changes it shows each value as it is and as it will be.
+  Turning a tweak off undoes what LimeKit changed for it, so a value you had
+  set by hand comes back; a tweak LimeKit did not turn on gets the Windows
+  default. "Вернуть всё" undoes every change, and the undo can be saved as a
+  .reg file that works without LimeKit. Values changed after LimeKit set them
+  are left alone and named. It starts with three File Explorer tweaks, none of
+  them checked on any build yet.
+- "Убрать LimeKit из системы" undoes the tweak changes first.
+
 ### For developers
 
-- `crates/tweaks`: the engine the tweaks will run on, with no interface yet.
+- `crates/tweaks`: the engine the tweaks run on.
   Every change is written to a JSON Lines journal before the registry is
   touched, read back after, and a set of changes takes effect whole or not at
   all. Changes can be undone one by one, per set or all at once, without

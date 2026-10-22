@@ -1463,3 +1463,71 @@ body.dragging .dropzone {
   background: rgba(255, 255, 255, 0.18);
   background-clip: padding-box;
 }
+
+/* --- tweaks ------------------------------------------------------------- */
+
+.tweaks-windows {
+  margin-left: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.tweak-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 880px;
+}
+
+.tweaks-intro {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tweaks-drift {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(224, 169, 95, 0.1);
+  border: 1px solid rgba(224, 169, 95, 0.25);
+  color: var(--amber-text);
+  font-size: 13px;
+}
+
+.tweak-text {
+  min-width: 0;
+}
+
+.tweak-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.format-chip.warn {
+  background: rgba(224, 169, 95, 0.12);
+  border-color: rgba(224, 169, 95, 0.3);
+  color: var(--amber-text);
+}
+
+.setting-hint.lime {
+  color: var(--lime-text);
+}
+
+.tweak-card .toggle {
+  cursor: pointer;
+}
+
+.tweak-card .toggle.busy {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Unavailable tweaks stay readable, and a "built into Windows" one keeps its
+   button to Settings. */
+.tweak-card.unavailable .tweak-text,
+.tweak-card.unavailable .tweak-chips {
+  opacity: 0.55;
+}

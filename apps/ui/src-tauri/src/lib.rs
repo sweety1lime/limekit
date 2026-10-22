@@ -4,6 +4,7 @@ mod daemon_client;
 mod diagnostics;
 mod gallery;
 mod library;
+mod tweak_panel;
 
 use std::path::{Path, PathBuf};
 
@@ -441,6 +442,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .manage(tweak_panel::TweakEngine::default())
         .invoke_handler(tauri::generate_handler![
             daemon_connect,
             list_monitors,
@@ -470,6 +472,12 @@ pub fn run() {
             gallery::gallery_fetch_catalog,
             gallery::gallery_download,
             gallery::gallery_apply_revocations,
+            tweak_panel::tweaks_view,
+            tweak_panel::tweak_preview,
+            tweak_panel::tweak_switch,
+            tweak_panel::tweaks_undo_all,
+            tweak_panel::tweaks_export_undo,
+            tweak_panel::tweak_open_settings,
         ])
         .setup(|app| {
             // Double-clicking a .wpk should land here (per-user, no admin).

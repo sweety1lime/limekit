@@ -22,6 +22,7 @@ serde_json = "1"
 ipc = { path = "../../../crates/ipc" }
 wpk = { path = "../../../crates/wpk" }
 platform = { path = "../../../crates/platform" }
+tweaks = { path = "../../../crates/tweaks" }
 base64 = "0.22"
 dirs = "6"
 sha2 = "0.10"

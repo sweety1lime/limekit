@@ -4,7 +4,8 @@
 //! uninstaller can run the same command.
 //!
 //! What goes: the running daemon, which also puts the Windows wallpaper back;
-//! the autostart entry; our part of the `.limekit` / `.wpk` association. With
+//! every tweak change still in effect, undone through the journal; the
+//! autostart entry; our part of the `.limekit` / `.wpk` association. With
 //! `--remove-data` also the library, settings and log in `%APPDATA%\LimeKit`
 //! and the window's WebView2 data in `%LOCALAPPDATA%`.
 
@@ -12,7 +13,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::{assoc, daemon_client};
+use crate::{assoc, daemon_client, tweak_panel};
 
 /// `identifier` in tauri.conf.json, which names the folder WebView2 keeps the
 /// window's data in.
@@ -61,6 +62,20 @@ pub fn run(options: &Options) -> i32 {
             failures.push("фоновый плеер не завершился за 10 секунд".to_owned());
         }
     }
+    // Before the data goes, since the journal is part of it.
+    let mut tweaks_undone = 0;
+    match tweak_panel::undo_all_for_cleanup() {
+        Ok(undone) => {
+            tweaks_undone = undone.reverted;
+            if !undone.changed_since.is_empty() {
+                failures.push(format!(
+                    "эти параметры Windows поменяли уже после LimeKit, их не трогали: {}",
+                    undone.changed_since.join(", ")
+                ));
+            }
+        }
+        Err(error) => failures.push(format!("отмена твиков: {error}")),
+    }
     if let Err(error) = platform::set_autostart(platform::AUTOSTART_APP, None) {
         failures.push(format!("автозапуск: {error}"));
     }
@@ -76,7 +91,7 @@ pub fn run(options: &Options) -> i32 {
     }
 
     if options.report {
-        report(options, &failures);
+        report(options, &failures, tweaks_undone);
     }
     for failure in &failures {
         eprintln!("cleanup: {failure}");
@@ -108,8 +123,13 @@ fn remove_dir(dir: &Path) -> std::io::Result<()> {
     }
 }
 
-fn report(options: &Options, failures: &[String]) {
+fn report(options: &Options, failures: &[String], tweaks_undone: usize) {
     if failures.is_empty() {
+        let tweaks = if tweaks_undone > 0 {
+            ", изменения твиков отменены"
+        } else {
+            ""
+        };
         let data = if options.remove_data {
             ", библиотека обоев и настройки удалены"
         } else {
@@ -123,7 +143,7 @@ fn report(options: &Options, failures: &[String]) {
             "LimeKit",
             &format!(
                 "LimeKit убран из системы: обои остановлены, автозапуск и ассоциация \
-                 файлов .limekit сняты{data}.\n\nТеперь можно удалить папку с программой:\n{folder}"
+                 файлов .limekit сняты{tweaks}{data}.\n\nТеперь можно удалить папку с программой:\n{folder}"
             ),
             false,
         );

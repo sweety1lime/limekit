@@ -7,7 +7,7 @@ use std::collections::BTreeSet;
 
 use platform::registry::{RawValue, RegistryError};
 use platform::system::WindowsVersion;
-use serde::{Deserialize, Deserializer, de};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::compat::{Availability, Requirements};
 use crate::engine::{Change, Target};
@@ -49,7 +49,7 @@ pub struct Text {
 }
 
 /// How far LimeKit can vouch for a tweak's values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Provenance {
     /// Microsoft documents the value: a policy or a documented setting.
@@ -61,7 +61,7 @@ pub enum Provenance {
 }
 
 /// When a change becomes visible.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TakesEffect {
     #[default]

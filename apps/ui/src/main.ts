@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open, save } from "@tauri-apps/plugin-dialog";
+import { type Key, lang, t } from "./i18n";
 
 // Package extensions, mirroring wpk::PACK_EXT / wpk::ACCEPTED_EXTS. New files
 // are saved as `.limekit`; `.wpk` from 0.1 still imports.
@@ -106,6 +107,53 @@ interface ConsentRequest {
   kind: string;
 }
 
+// Mirrors tweaks::Value as it serializes.
+type RegValue =
+  | { type: "sz" | "expand_sz"; data: string }
+  | { type: "multi_sz"; data: string[] }
+  | { type: "dword" | "qword"; data: number }
+  | { type: "binary"; data: string }
+  | { type: "raw"; data: { kind: number; bytes: string } };
+
+type Availability =
+  | { kind: "verified" | "unverified" }
+  | { kind: "built_in"; settings_uri: string | null }
+  | { kind: "too_old" | "too_new"; build: string }
+  | { kind: "wrong_edition"; editions: string[] };
+
+interface TweakView {
+  id: string;
+  title: string;
+  description: string;
+  provenance: "documented" | "observed" | "unsupported";
+  takes_effect: "immediately" | "explorer_restart" | "sign_out";
+  availability: Availability;
+  state: "on" | "off" | "mixed";
+  applied: boolean;
+}
+
+interface TweaksView {
+  windows: string;
+  tweaks: TweakView[];
+  drift: string[];
+}
+
+interface PreviewLine {
+  target: string;
+  current: RegValue | null;
+  next: RegValue | null;
+}
+
+type SwitchOutcome =
+  | { result: "done" | "already_set" | "not_available" }
+  | { result: "changed_since"; targets: string[] }
+  | { result: "access_denied" | "not_taken"; target: string };
+
+interface UndoAll {
+  reverted: number;
+  changed_since: string[];
+}
+
 // ---------------------------------------------------------------------------
 // tiny hyperscript helper — keeps the vanilla DOM building readable
 // ---------------------------------------------------------------------------
@@ -181,6 +229,10 @@ let galleryPacks: GalleryPack[] = [];
 let galleryLoading = false;
 let galleryError: string | null = null;
 const galleryDownloaded = new Set<string>(); // gallery pack ids, this session
+let tweaksOpen = false;
+let tweaksView: TweaksView | null = null;
+let tweaksError: string | null = null;
+let tweakBusy: string | null = null; // id of the tweak being switched
 // Library item ids that came from the gallery — persisted, drives the
 // "✓ из каталога" badge on library cards.
 const galleryVerified = new Set<string>(readJson<string[]>("lw-gallery-verified", []));
@@ -451,6 +503,11 @@ function adoptSessionControls(monitor: number) {
 
 function renderContent() {
   content.replaceChildren();
+  // Tweaks need no wallpaper daemon, so they open even without one.
+  if (tweaksOpen) {
+    content.append(buildTweaks());
+    return;
+  }
   if (!connected) {
     content.append(buildOffline());
   } else if (galleryOpen) {
@@ -469,6 +526,7 @@ function renderContent() {
 
 function openGallery() {
   if (!connected) return;
+  tweaksOpen = false;
   galleryOpen = true;
   // Show the last-seen catalog instantly, then refresh in the background.
   if (galleryPacks.length === 0) galleryPacks = readJson<GalleryPack[]>("lw-catalog-cache", []);
@@ -629,6 +687,267 @@ async function downloadPack(pack: GalleryPack) {
 // ---------------------------------------------------------------------------
 // offline view
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// tweaks
+// ---------------------------------------------------------------------------
+
+const PROVENANCE_TEXT: Record<TweakView["provenance"], Key> = {
+  documented: "provenance.documented",
+  observed: "provenance.observed",
+  unsupported: "provenance.unsupported",
+};
+
+const EFFECT_TEXT: Record<TweakView["takes_effect"], Key | null> = {
+  immediately: null,
+  explorer_restart: "effect.explorer_restart",
+  sign_out: "effect.sign_out",
+};
+
+const EDITION_NAMES: Record<string, string> = {
+  home: "Home",
+  pro: "Pro",
+  enterprise: "Enterprise",
+  education: "Education",
+  server: "Server",
+};
+
+function openTweaks() {
+  galleryOpen = false;
+  tweaksOpen = true;
+  renderContent();
+  void loadTweaks();
+}
+
+function closeTweaks() {
+  tweaksOpen = false;
+  renderContent();
+}
+
+async function loadTweaks() {
+  tweaksError = null;
+  try {
+    tweaksView = await invoke<TweaksView>("tweaks_view", { lang });
+  } catch (error) {
+    tweaksError = String(error);
+  }
+  if (tweaksOpen) renderContent();
+}
+
+function usable(tweak: TweakView): boolean {
+  return tweak.availability.kind === "verified" || tweak.availability.kind === "unverified";
+}
+
+function availabilityText(availability: Availability): string {
+  switch (availability.kind) {
+    case "verified":
+      return t("availability.verified");
+    case "unverified":
+      return t("availability.unverified");
+    case "built_in":
+      return t("availability.built_in");
+    case "too_old":
+      return t("availability.too_old", { build: availability.build });
+    case "too_new":
+      return t("availability.too_new", { build: availability.build });
+    case "wrong_edition":
+      return t("availability.wrong_edition", {
+        editions: availability.editions.map((edition) => EDITION_NAMES[edition] ?? edition).join(", "),
+      });
+  }
+}
+
+function describeValue(value: RegValue | null): string {
+  if (!value) return t("value.absent");
+  switch (value.type) {
+    case "dword":
+    case "qword":
+      return `${value.type} ${value.data}`;
+    case "sz":
+    case "expand_sz":
+      return `"${value.data}"`;
+    case "multi_sz":
+      return value.data.map((text) => `"${text}"`).join(", ");
+    case "binary":
+      return `hex ${value.data}`;
+    case "raw":
+      return `type ${value.data.kind}, hex ${value.data.bytes}`;
+  }
+}
+
+function buildTweaks(): HTMLElement {
+  const head = h(
+    "div",
+    { class: "gallery-head" },
+    h("button", { class: "btn-ghost small", type: "button", onClick: () => closeTweaks() }, t("tweaks.back")),
+    h(
+      "div",
+      { class: "gallery-title" },
+      t("tweaks.title"),
+      tweaksView?.windows ? h("span", { class: "tweaks-windows" }, tweaksView.windows) : null,
+    ),
+    h("button", { class: "btn-ghost small", type: "button", onClick: () => void exportUndo() }, t("tweaks.exportUndo")),
+    h("button", { class: "btn-ghost small", type: "button", onClick: () => void undoAll() }, t("tweaks.undoAll")),
+  );
+
+  const body = h("div", { class: "grid-scroll" });
+  if (tweaksError) {
+    body.append(h("div", { class: "grid-empty" }, tweaksError));
+  } else if (!tweaksView) {
+    body.append(h("div", { class: "grid-empty" }, t("tweaks.loading")));
+  } else {
+    const view = tweaksView;
+    const list = h("div", { class: "tweak-list" }, h("p", { class: "tweaks-intro" }, t("tweaks.intro")));
+    if (view.drift.length) {
+      const names = view.drift.map((id) => view.tweaks.find((tweak) => tweak.id === id)?.title ?? id);
+      list.append(h("div", { class: "tweaks-drift" }, t("tweaks.drift", { list: names.join(", ") })));
+    }
+    if (view.tweaks.length === 0) list.append(h("div", { class: "grid-empty" }, t("tweaks.empty")));
+    for (const tweak of view.tweaks) list.append(renderTweak(tweak));
+    body.append(list);
+  }
+  return h("div", { class: "gallery" }, head, body);
+}
+
+function renderTweak(tweak: TweakView): HTMLElement {
+  const on = tweak.state === "on";
+  const effect = EFFECT_TEXT[tweak.takes_effect];
+  let control: HTMLElement | null = null;
+  if (usable(tweak)) {
+    control = h(
+      "div",
+      { class: "toggle" + (tweakBusy === tweak.id ? " busy" : ""), onClick: () => void switchTweak(tweak, !on) },
+      h("div", { class: "switch big" + (on ? " on" : "") }),
+    );
+  } else if (tweak.availability.kind === "built_in" && tweak.availability.settings_uri) {
+    control = h(
+      "button",
+      { class: "btn-ghost small", type: "button", onClick: () => void call<void>("tweak_open_settings", { id: tweak.id }) },
+      t("availability.openSettings"),
+    );
+  }
+  return h(
+    "div",
+    { class: "setting-card tweak-card" + (usable(tweak) ? "" : " unavailable") },
+    h(
+      "div",
+      { class: "setting-row" },
+      h(
+        "div",
+        { class: "tweak-text" },
+        h("div", { class: "setting-name" }, tweak.title),
+        h("div", { class: "setting-desc" }, tweak.description),
+      ),
+      control,
+    ),
+    h(
+      "div",
+      { class: "tweak-chips" },
+      h(
+        "span",
+        { class: "format-chip" + (tweak.provenance === "unsupported" ? " warn" : "") },
+        t(PROVENANCE_TEXT[tweak.provenance]),
+      ),
+      h(
+        "span",
+        { class: "format-chip" + (tweak.availability.kind === "verified" ? " accent" : "") },
+        availabilityText(tweak.availability),
+      ),
+      effect ? h("span", { class: "format-chip" }, t(effect)) : null,
+    ),
+    tweak.state === "mixed" ? h("div", { class: "setting-hint" }, t("state.mixed")) : null,
+    tweak.applied ? h("div", { class: "setting-hint lime" }, t("state.applied")) : null,
+  );
+}
+
+// Shows what will change and asks before touching anything.
+async function switchTweak(tweak: TweakView, on: boolean) {
+  if (tweakBusy) return;
+  const lines = await call<PreviewLine[]>("tweak_preview", { id: tweak.id, on });
+  const parts = [
+    t("confirm.changes"),
+    ...lines.map((line) => `${line.target}\n    ${describeValue(line.current)} → ${describeValue(line.next)}`),
+  ];
+  if (!on && tweak.applied) parts.push("", t("confirm.revert"));
+  if (on && tweak.availability.kind === "unverified") parts.push("", t("confirm.unverified"));
+  if (on && tweak.provenance === "unsupported") parts.push("", t("confirm.unsupported"));
+  const proceed = await ask(parts.join("\n"), {
+    title: t(on ? "confirm.onTitle" : "confirm.offTitle", { title: tweak.title }),
+    kind: on && tweak.provenance === "unsupported" ? "warning" : "info",
+    okLabel: t(on ? "confirm.on" : "confirm.off"),
+    cancelLabel: t("confirm.cancel"),
+  });
+  if (!proceed) return;
+
+  tweakBusy = tweak.id;
+  renderContent();
+  try {
+    reportSwitch(tweak, on, await call<SwitchOutcome>("tweak_switch", { id: tweak.id, on }));
+  } catch {
+    // error text is already shown by call()
+  } finally {
+    tweakBusy = null;
+    await loadTweaks();
+  }
+}
+
+function reportSwitch(tweak: TweakView, on: boolean, outcome: SwitchOutcome) {
+  switch (outcome.result) {
+    case "done": {
+      const effect = EFFECT_TEXT[tweak.takes_effect];
+      const done = t(on ? "outcome.on" : "outcome.off", { title: tweak.title });
+      report(effect ? `${done}: ${t(effect)}` : done);
+      break;
+    }
+    case "already_set":
+      report(t("outcome.already"));
+      break;
+    case "changed_since":
+      report(t("outcome.changedSince", { list: outcome.targets.join(", ") }), true);
+      break;
+    case "access_denied":
+      report(t("outcome.accessDenied", { target: outcome.target }), true);
+      break;
+    case "not_taken":
+      report(t("outcome.notTaken", { target: outcome.target }), true);
+      break;
+    case "not_available":
+      report(t("outcome.notAvailable"), true);
+      break;
+  }
+}
+
+async function undoAll() {
+  const proceed = await ask(t("undoAll.question"), {
+    title: t("undoAll.title"),
+    kind: "warning",
+    okLabel: t("undoAll.title"),
+    cancelLabel: t("confirm.cancel"),
+  });
+  if (!proceed) return;
+  try {
+    const result = await call<UndoAll>("tweaks_undo_all");
+    let text = result.reverted ? t("undoAll.done", { count: result.reverted }) : t("undoAll.none");
+    if (result.changed_since.length) {
+      text += `. ${t("outcome.changedSince", { list: result.changed_since.join(", ") })}`;
+    }
+    report(text, result.changed_since.length > 0);
+  } catch {
+    // error text is already shown by call()
+  }
+  await loadTweaks();
+}
+
+async function exportUndo() {
+  const path = await save({
+    title: t("export.title"),
+    defaultPath: "limekit-undo.reg",
+    filters: [{ name: t("export.filter"), extensions: ["reg"] }],
+  });
+  if (typeof path !== "string") return;
+  await call<void>("tweaks_export_undo", { path });
+  report(t("export.done", { path }));
+}
 
 function buildOffline(): HTMLElement {
   return h(
@@ -1736,6 +2055,9 @@ function wireTitlebar() {
   close.addEventListener("click", () => void win.close());
   document.getElementById("settings-open")!.addEventListener("click", () => openSettings());
   document.getElementById("gallery-open")!.addEventListener("click", () => openGallery());
+  const tweaksButton = document.getElementById("tweaks-open")!;
+  tweaksButton.textContent = t("nav.tweaks");
+  tweaksButton.addEventListener("click", () => openTweaks());
 }
 
 // ---------------------------------------------------------------------------
