@@ -1,0 +1,64 @@
+# The tweak catalog built into LimeKit. Each tweak is data: what it writes when
+# turned on and off, where the values come from, and which Windows it is for.
+# `cargo test -p tweaks` checks the rules below (src/catalog.rs).
+#
+# id           category.name; the journal refers to tweaks by it, so it stays.
+# provenance   documented   Microsoft documents the value; cite it in source.
+#              observed     undocumented, but what Windows' own settings write.
+#              unsupported  a trick Windows does not support and may drop.
+# takes_effect immediately | explorer_restart | sign_out
+# path         a key under HKEY_CURRENT_USER, without the hive.
+# on / off     a value such as { type = "dword", data = 1 }, or "delete".
+#              off is the Windows default.
+# requires     min_build, below_build ("26100" or "26100.3915"), editions
+#              (home, pro, enterprise, education, server), verified = [builds
+#              it was checked on], native_since + settings_uri when Windows
+#              has its own switch for it from that build on.
+#
+# A tweak counts as verified on a build only after someone has turned it on
+# and off there and seen it work. Until then LimeKit says it is unverified.
+
+[[tweak]]
+id = "explorer.file_extensions"
+title.ru = "Показывать расширения файлов"
+title.en = "Show file name extensions"
+description.ru = "Проводник показывает расширения у всех файлов, например .exe или .txt. Так сложнее выдать программу «документ.pdf.exe» за документ."
+description.en = "File Explorer shows every file's extension, such as .exe or .txt, which makes a program named “document.pdf.exe” harder to pass off as a document."
+provenance = "observed"
+takes_effect = "explorer_restart"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "HideFileExt"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "explorer.hidden_files"
+title.ru = "Показывать скрытые файлы и папки"
+title.en = "Show hidden files and folders"
+description.ru = "Проводник показывает файлы и папки с атрибутом «скрытый», например AppData. Системные файлы остаются скрытыми."
+description.en = "File Explorer shows files and folders marked hidden, such as AppData. Protected system files stay hidden."
+provenance = "observed"
+takes_effect = "explorer_restart"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "Hidden"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 2 }
+
+[[tweak]]
+id = "explorer.open_to_this_pc"
+title.ru = "Открывать Проводник на «Этот компьютер»"
+title.en = "Open File Explorer to This PC"
+description.ru = "Новое окно Проводника открывается со списком дисков, а не на главной странице с недавними файлами."
+description.en = "A new File Explorer window opens on your drives instead of the start page with recent files."
+provenance = "observed"
+takes_effect = "explorer_restart"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "LaunchTo"
+on = { type = "dword", data = 1 }
+off = "delete"

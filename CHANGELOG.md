@@ -11,6 +11,14 @@
   overwriting a value something else has changed since; the undo exports as a
   .reg file that works without LimeKit. How it works and what it does not
   promise: `docs/research/tweaks-journal.md`.
+- The tweak catalog, `crates/tweaks/catalog.toml`: every tweak as data, with
+  Russian and English text, a provenance label (documented, observed,
+  unsupported), its on and off values, and the builds, update revisions and
+  editions it is for. LimeKit reads the build, UBR and `EditionID` and tells
+  apart verified, unverified, built into Windows, wrong version and wrong
+  edition. Tests check the catalog's data, so a bad entry fails CI. Three
+  File Explorer tweaks are in it to start with, none verified yet:
+  `docs/research/tweaks-catalog.md`.
 - `platform::registry`: HKCU values as their type and bytes exactly as
   stored, with a missing value told apart from an empty one and access denied
   apart from other errors.

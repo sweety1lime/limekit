@@ -8,12 +8,18 @@
 //! be undone, unless something else has changed the value since, and the undo
 //! can be exported as a .reg file that works without LimeKit.
 
+mod catalog;
+mod compat;
 mod engine;
 mod journal;
 mod reg_file;
 mod registry;
 mod value;
 
+pub use catalog::{
+    Catalog, CatalogError, Provenance, Setting, TakesEffect, Text, Tweak, TweakChange, TweakState,
+};
+pub use compat::{Availability, Build, Edition, Requirements};
 pub use engine::{
     ApplyError, Before, Change, Drift, Engine, EngineError, Entry, EntryId, Outcome, RevertOutcome,
     SessionId, State, Target,

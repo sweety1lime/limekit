@@ -159,6 +159,8 @@ I rejected and why. They're in Russian:
 - [Politeness](docs/research/politeness.md) — when and how wallpapers pause.
 - [Tweak journal](docs/research/tweaks-journal.md) — how the upcoming tweaks
   write down every change before making it, and how it is undone.
+- [Tweak catalog](docs/research/tweaks-catalog.md) — tweaks as data, three
+  provenance labels, and how LimeKit decides a tweak fits this Windows.
 
 ## Decisions and trade-offs
 

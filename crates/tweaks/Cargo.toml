@@ -10,6 +10,7 @@ platform = { path = "../platform" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+toml = { version = "1", default-features = false, features = ["std", "serde", "parse"] }
 
 [dev-dependencies]
 tempfile = "3"
