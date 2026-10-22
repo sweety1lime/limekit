@@ -84,7 +84,7 @@ impl Library {
             .and_then(|e| e.to_str())
             .map(str::to_lowercase)
             .unwrap_or_default();
-        if extension == "wpk" {
+        if wpk::has_package_extension(&source) {
             return self.import_wpk(&source);
         }
         // A bare HTML entry: import its whole folder as a web wallpaper.
@@ -94,8 +94,8 @@ impl Library {
         self.import_media(&source, None, None, None, None)
     }
 
-    /// Unpacks a `.wpk` package and imports it, keeping the manifest name,
-    /// author and license.
+    /// Unpacks a package (`.limekit`, or `.wpk` from 0.1) and imports it,
+    /// keeping the manifest name, author and license.
     fn import_wpk(&self, package: &Path) -> Result<LibraryItem, String> {
         let manifest = wpk::read_manifest(package).map_err(|error| error.to_string())?;
         let package_id = Some(manifest.id.clone()).filter(|id| is_safe_id(id));
@@ -766,7 +766,7 @@ mod tests {
         );
         let item = library.import(&gif).expect("gif import");
 
-        let package = temp.path().join("loop.wpk");
+        let package = temp.path().join(format!("loop.{}", wpk::PACK_EXT));
         library.export(&item.id, &package).expect("export");
         let manifest = wpk::read_manifest(&package).expect("exported package is valid");
         assert_eq!(manifest.id, item.id);
@@ -775,7 +775,7 @@ mod tests {
 
         // Import into a fresh library keeps identity and metadata.
         let second = Library::at(temp.path().join("library2"));
-        let restored = second.import(&package).expect("wpk import");
+        let restored = second.import(&package).expect("package import");
         assert_eq!(restored.id, item.id);
         assert_eq!(restored.name, "loop");
         assert_eq!(restored.author.as_deref(), Some("unknown"));
@@ -785,6 +785,13 @@ mod tests {
             std::fs::read(&item.file).expect("original media"),
             "package must carry the converted mp4 byte for byte"
         );
+
+        // Packages exported by 0.1 carry the old extension and still open.
+        let legacy = temp.path().join("loop.wpk");
+        fs::copy(&package, &legacy).expect("copy as .wpk");
+        let third = Library::at(temp.path().join("library3"));
+        let from_legacy = third.import(&legacy).expect("legacy .wpk import");
+        assert_eq!(from_legacy.id, item.id);
     }
 
     #[test]
