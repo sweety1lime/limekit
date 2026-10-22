@@ -77,10 +77,10 @@ fn endpoint_with_prefix(prefix: &str) -> String {
     format!("{prefix}-v{PROTOCOL_VERSION}-{tag}.sock")
 }
 
-/// What [`stop_legacy_daemon`] found.
+/// What [`stop_daemon`] found.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LegacyDaemon {
-    /// Nothing was listening on the old endpoint.
+pub enum DaemonStop {
+    /// Nothing was listening on the endpoint.
     NotRunning,
     /// It acknowledged the shutdown and its endpoint has gone away.
     Stopped,
@@ -98,14 +98,15 @@ pub enum LegacyDaemon {
 /// shutdown it already understands does the job.
 ///
 /// Never blocks for longer than `timeout`: a hung daemon is reported as
-/// [`LegacyDaemon::Unresponsive`] and the caller carries on.
-pub fn stop_legacy_daemon(timeout: Duration) -> LegacyDaemon {
-    stop_daemon_at(&legacy_endpoint(), timeout)
+/// [`DaemonStop::Unresponsive`] and the caller carries on.
+pub fn stop_legacy_daemon(timeout: Duration) -> DaemonStop {
+    stop_daemon(&legacy_endpoint(), timeout)
 }
 
-/// [`stop_legacy_daemon`] against an explicit endpoint, so tests never aim the
-/// shutdown at a real old daemon on the developer's machine.
-fn stop_daemon_at(endpoint: &str, timeout: Duration) -> LegacyDaemon {
+/// Asks the daemon at `endpoint`, if one is running, to quit, and waits until
+/// the endpoint disappears, which happens as the process exits. Never blocks
+/// for longer than `timeout`.
+pub fn stop_daemon(endpoint: &str, timeout: Duration) -> DaemonStop {
     let deadline = Instant::now() + timeout;
     let endpoint = endpoint.to_owned();
 
@@ -116,21 +117,21 @@ fn stop_daemon_at(endpoint: &str, timeout: Duration) -> LegacyDaemon {
         let _ = sender.send(send_request(&request_endpoint, &request).is_ok());
     });
     match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-        // Nobody answered on the old endpoint: no old daemon to stop.
-        Ok(false) => return LegacyDaemon::NotRunning,
+        // Nobody answered: there is no daemon to stop.
+        Ok(false) => return DaemonStop::NotRunning,
         Ok(true) => {}
-        Err(_) => return LegacyDaemon::Unresponsive,
+        Err(_) => return DaemonStop::Unresponsive,
     }
 
     // The reply comes before the daemon has torn down; wait for the endpoint
     // itself to go, which happens as the process exits.
     while Instant::now() < deadline {
         if connect(&endpoint).is_err() {
-            return LegacyDaemon::Stopped;
+            return DaemonStop::Stopped;
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    LegacyDaemon::Unresponsive
+    DaemonStop::Unresponsive
 }
 
 fn create_listener(endpoint: &str) -> io::Result<Listener> {
@@ -247,8 +248,8 @@ mod tests {
 
     #[test]
     fn stopping_with_nothing_listening_reports_not_running() {
-        let outcome = stop_daemon_at(&test_endpoint(), Duration::from_secs(2));
-        assert_eq!(outcome, LegacyDaemon::NotRunning);
+        let outcome = stop_daemon(&test_endpoint(), Duration::from_secs(2));
+        assert_eq!(outcome, DaemonStop::NotRunning);
     }
 
     #[test]
@@ -270,8 +271,8 @@ mod tests {
             // old daemon's process exits.
         });
 
-        let outcome = stop_daemon_at(&endpoint, Duration::from_secs(5));
+        let outcome = stop_daemon(&endpoint, Duration::from_secs(5));
         server_thread.join().expect("server thread");
-        assert_eq!(outcome, LegacyDaemon::Stopped);
+        assert_eq!(outcome, DaemonStop::Stopped);
     }
 }

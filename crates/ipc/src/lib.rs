@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 mod transport;
 
 pub use transport::{
-    LegacyDaemon, LocalServer, LocalStream, TransportError, default_endpoint, legacy_endpoint,
-    send_request, stop_legacy_daemon,
+    DaemonStop, LocalServer, LocalStream, TransportError, default_endpoint, legacy_endpoint,
+    send_request, stop_daemon, stop_legacy_daemon,
 };
 
 pub const PROTOCOL_VERSION: u16 = 1;

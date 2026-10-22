@@ -87,6 +87,72 @@ fn register_under(classes: &str, exe: &std::path::Path) -> Result<bool, String> 
     Ok(changed)
 }
 
+/// Removes what [`register`] wrote, for `LimeKit.exe --cleanup`. Only our parts
+/// go: another program that owns `.wpk` keeps it, and our entry leaves its
+/// "Open with" list.
+#[cfg(windows)]
+pub fn unregister() -> Result<(), String> {
+    if unregister_under(r"Software\Classes")? {
+        platform::notify_associations_changed();
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn unregister() -> Result<(), String> {
+    Ok(())
+}
+
+/// Undoes [`register_under`] and reports whether anything changed.
+#[cfg(windows)]
+fn unregister_under(classes: &str) -> Result<bool, String> {
+    let root = windows_registry::CURRENT_USER;
+    let mut changed = false;
+
+    for ext in wpk::ACCEPTED_EXTS {
+        let path = format!(r"{classes}\.{ext}");
+        let Ok(key) = root.options().read().write().open(&path) else {
+            continue;
+        };
+        if key.get_string("").is_ok_and(|current| current == PROG_ID) {
+            key.remove_value("").map_err(map)?;
+            changed = true;
+        }
+        let open_with = format!(r"{path}\OpenWithProgids");
+        if let Ok(list) = root.options().read().write().open(&open_with)
+            && list.get_string(PROG_ID).is_ok()
+        {
+            list.remove_value(PROG_ID).map_err(map)?;
+            changed = true;
+            remove_if_empty(&open_with)?;
+        }
+        remove_if_empty(&path)?;
+    }
+
+    let progid = format!(r"{classes}\{PROG_ID}");
+    if root.open(&progid).is_ok() {
+        root.remove_tree(&progid).map_err(map)?;
+        changed = true;
+    }
+    Ok(changed)
+}
+
+/// Deletes the key at `path` (inside HKCU) when it has no values and no
+/// subkeys left, so a cleaned-up extension does not linger as an empty key.
+#[cfg(windows)]
+fn remove_if_empty(path: &str) -> Result<(), String> {
+    let root = windows_registry::CURRENT_USER;
+    let Ok(key) = root.open(path) else {
+        return Ok(());
+    };
+    let empty =
+        key.values().map_err(map)?.next().is_none() && key.keys().map_err(map)?.next().is_none();
+    if empty {
+        root.remove_tree(path).map_err(map)?;
+    }
+    Ok(())
+}
+
 /// Sets value `name` of the key at `path` (inside HKCU) to `value` unless it
 /// already holds exactly that. Returns whether it wrote.
 #[cfg(windows)]
@@ -206,6 +272,49 @@ mod tests {
                 .open(format!(r"{}\{LEGACY_PROG_ID}", sandbox.0))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn unregister_removes_everything_register_wrote() {
+        let sandbox = Sandbox::new("cleanup");
+        register_under(&sandbox.0, &exe()).unwrap();
+
+        assert!(unregister_under(&sandbox.0).unwrap());
+
+        for ext in wpk::ACCEPTED_EXTS {
+            assert!(
+                windows_registry::CURRENT_USER
+                    .open(format!(r"{}\.{ext}", sandbox.0))
+                    .is_err(),
+                ".{ext} should be gone"
+            );
+        }
+        assert!(
+            windows_registry::CURRENT_USER
+                .open(format!(r"{}\{PROG_ID}", sandbox.0))
+                .is_err()
+        );
+        // A second cleanup finds nothing left to do.
+        assert!(!unregister_under(&sandbox.0).unwrap());
+    }
+
+    #[test]
+    fn unregister_leaves_another_programs_wpk_alone() {
+        let sandbox = Sandbox::new("cleanup-foreign");
+        sandbox.set(".wpk", "", "Other.Program");
+        sandbox.set(r".wpk\OpenWithProgids", "Other.Program", "");
+        register_under(&sandbox.0, &exe()).unwrap();
+
+        unregister_under(&sandbox.0).unwrap();
+
+        assert_eq!(sandbox.get(".wpk", "").as_deref(), Some("Other.Program"));
+        assert_eq!(
+            sandbox
+                .get(r".wpk\OpenWithProgids", "Other.Program")
+                .as_deref(),
+            Some("")
+        );
+        assert_eq!(sandbox.get(r".wpk\OpenWithProgids", PROG_ID), None);
     }
 
     #[test]

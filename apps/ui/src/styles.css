@@ -787,6 +787,11 @@ body.dragging .dropzone {
   color: var(--lime-text-soft);
 }
 
+.btn-ghost.danger {
+  color: var(--danger);
+  border-color: rgba(224, 154, 147, 0.35);
+}
+
 .playlist-popover {
   display: flex;
   flex-direction: column;

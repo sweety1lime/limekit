@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **Settings → "Убрать LimeKit из системы".** It stops the wallpapers, removes
+  autostart and the `.limekit` association (only our part of `.wpk`, if another
+  program owns it), and optionally deletes the library, settings and the
+  window's WebView2 data, then closes. Until now deleting the folder left the
+  association and the autostart entry behind, pointing at nothing, although
+  the README said deleting the folder was enough. The same thing runs as
+  `LimeKit.exe --cleanup [--remove-data]`, which an uninstaller can call.
+
 ### Fixed
 
 - **Video and image wallpapers, GIF import and previews work without a Vulkan

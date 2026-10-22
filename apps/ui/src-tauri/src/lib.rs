@@ -1,4 +1,5 @@
 mod assoc;
+mod cleanup;
 mod daemon_client;
 mod diagnostics;
 mod gallery;
@@ -163,6 +164,26 @@ fn get_autostart() -> Result<bool, String> {
 #[tauri::command]
 fn set_autostart(enabled: bool) -> Result<String, String> {
     acknowledged(ipc::Command::SetAutostart { enabled })
+}
+
+/// Hands over to `LimeKit.exe --cleanup` and closes the window. The cleanup
+/// waits for this process to exit first: it holds the WebView2 data open and
+/// would register the file association again on its way.
+#[tauri::command]
+fn remove_from_system(app: tauri::AppHandle, remove_data: bool) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|error| error.to_string())?;
+    let mut command = std::process::Command::new(exe);
+    command
+        .args(["--cleanup", "--report", "--after"])
+        .arg(std::process::id().to_string());
+    if remove_data {
+        command.arg("--remove-data");
+    }
+    command
+        .spawn()
+        .map_err(|error| format!("failed to start the cleanup: {error}"))?;
+    app.exit(0);
+    Ok(())
 }
 
 fn parse_battery_policy(policy: &str) -> Result<ipc::BatteryPolicy, String> {
@@ -383,6 +404,12 @@ fn import_packages(app: tauri::AppHandle, packages: Vec<std::path::PathBuf>) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // `LimeKit.exe --cleanup` runs without a window. It has to branch off
+    // before the migration below, and before the single-instance plugin, which
+    // would hand it to the window that started it and exit.
+    if let Some(options) = cleanup::from_args(std::env::args_os()) {
+        std::process::exit(cleanup::run(&options));
+    }
     // Before the library, the log or the daemon can create the data directory:
     // see platform::appdata. An upgrading tester usually still has the LimeWall
     // daemon in the tray, holding its log open inside the directory to be
@@ -390,7 +417,7 @@ pub fn run() {
     // first does the move; the other finds it done.
     if platform::appdata::migration_pending() {
         let stopped = ipc::stop_legacy_daemon(std::time::Duration::from_secs(3));
-        if stopped != ipc::LegacyDaemon::NotRunning {
+        if stopped != ipc::DaemonStop::NotRunning {
             eprintln!("old LimeWall daemon: {stopped:?}");
         }
     }
@@ -426,6 +453,7 @@ pub fn run() {
             set_quality,
             get_autostart,
             set_autostart,
+            remove_from_system,
             get_battery_policy,
             set_battery_policy,
             library_list,

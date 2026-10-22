@@ -112,8 +112,11 @@ brings the Vulkan loader along.
 2. Unpack it anywhere.
 3. Run `LimeKit.exe`.
 
-Nothing is written into the system until you turn on autostart yourself with the
-checkbox in settings. To uninstall, delete the folder.
+There's no installation, but LimeKit does leave two things in the current
+user's registry: the `.limekit` file association, which the window writes when
+it starts, and the autostart entry, if you turn autostart on. To uninstall, hit
+"Remove LimeKit from the system" in settings: the wallpapers stop, both entries
+go, and the wallpaper library too if you want. Then delete the folder.
 
 LimeKit has no website and no mirrors. The only place to download it is
 [Releases](https://github.com/sweety1lime/limekit/releases) of this
@@ -202,10 +205,14 @@ sandboxed process is designed, but it's weeks of work and isn't done.
 for or keep alive, and every pack gets reviewed before anyone sees it. The
 price: a new wallpaper appears only after I've reviewed it.
 
-**A portable zip instead of an installer, no auto-update.** Nothing is written
-to the system until you turn on autostart, and removing LimeKit means deleting a
-folder. The price: the unsigned build gets a SmartScreen warning, and updates
-are manual.
+**A portable zip instead of an installer, no auto-update.** In the registry
+LimeKit leaves only the `.limekit` association and autostart; its files live in
+`%APPDATA%\LimeKit` and the window's cache in
+`%LOCALAPPDATA%\com.twofame.limekit`. One button in settings removes all of it,
+and after that removing LimeKit means deleting a folder.
+The price: the unsigned build gets a SmartScreen warning, updates are manual,
+and after you move the folder autostart points at the old place until you turn
+it off and on again (the window fixes the association itself when it starts).
 
 **No telemetry.** I don't know how many people use LimeKit or what crashes for
 them. Bugs reach me only through issues with the diagnostics report attached.

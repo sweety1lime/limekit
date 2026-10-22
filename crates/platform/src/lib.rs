@@ -162,6 +162,9 @@ pub fn harden_process() {
     }
 }
 
+/// Name LimeKit's daemon is registered under in the per-user Run key.
+pub const AUTOSTART_APP: &str = "LimeKit";
+
 /// Whether `app` is registered to start with the user session.
 pub fn autostart_enabled(app: &str) -> Result<bool> {
     #[cfg(windows)]
@@ -230,6 +233,60 @@ pub fn set_autostart(app: &str, command: Option<&str>) -> Result<()> {
     {
         let _ = (app, command);
         Err(HostError::Unsupported("autostart"))
+    }
+}
+
+/// Waits up to `timeout` for process `pid` to exit. True once it has, and when
+/// it cannot be opened at all, which for a process of our own user means it is
+/// already gone.
+pub fn wait_for_exit(pid: u32, timeout: std::time::Duration) -> bool {
+    #[cfg(windows)]
+    // SAFETY: the handle is used for one wait and closed before returning.
+    unsafe {
+        use windows::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+        use windows::Win32::System::Threading::{
+            OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject,
+        };
+        let Ok(process) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) else {
+            return true;
+        };
+        let millis = u32::try_from(timeout.as_millis()).unwrap_or(u32::MAX);
+        let exited = WaitForSingleObject(process, millis) == WAIT_OBJECT_0;
+        let _ = CloseHandle(process);
+        exited
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (pid, timeout);
+        true
+    }
+}
+
+/// Shows a modal message box, for windowless runs such as
+/// `LimeKit.exe --cleanup` that still owe the user an answer.
+pub fn show_message(title: &str, text: &str, warning: bool) {
+    #[cfg(windows)]
+    // SAFETY: both strings outlive the call; no owner window.
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::{
+            MB_ICONINFORMATION, MB_ICONWARNING, MB_OK, MessageBoxW,
+        };
+        use windows::core::HSTRING;
+        let icon = if warning {
+            MB_ICONWARNING
+        } else {
+            MB_ICONINFORMATION
+        };
+        MessageBoxW(
+            None,
+            &HSTRING::from(text),
+            &HSTRING::from(title),
+            MB_OK | icon,
+        );
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (title, text, warning);
     }
 }
 

@@ -15,6 +15,7 @@ use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
+use platform::AUTOSTART_APP;
 use serde::{Deserialize, Serialize};
 
 use crate::playback;
@@ -24,9 +25,6 @@ use crate::playlist;
 const MAX_CONNECTIONS: usize = 16;
 
 const STATE_VERSION: u32 = 1;
-
-/// Name of the Run-key value used for autostart.
-const AUTOSTART_APP: &str = "LimeKit";
 
 /// Windowless daemon binary, the one autostart must launch.
 const DAEMON_EXE: &str = if cfg!(windows) {

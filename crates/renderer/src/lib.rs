@@ -20,7 +20,7 @@ const LEGACY_STOP_TIMEOUT: Duration = Duration::from_secs(3);
 pub fn take_over_legacy_data() -> Option<String> {
     let stopped = platform::appdata::migration_pending()
         .then(|| ipc::stop_legacy_daemon(LEGACY_STOP_TIMEOUT))
-        .filter(|outcome| *outcome != ipc::LegacyDaemon::NotRunning);
+        .filter(|outcome| *outcome != ipc::DaemonStop::NotRunning);
     let migration = platform::appdata::migrate_user_data();
     match (stopped, migration) {
         (None, platform::appdata::Migration::NothingToDo) => None,

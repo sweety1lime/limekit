@@ -147,11 +147,13 @@ jobs:
         shell: pwsh
         run: Expand-Archive (Get-Item dist/LimeKit-*-win64.zip) -DestinationPath unpacked
 
-      # No GPU driver here, hence no vulkan-1.dll in System32: the zip has to
-      # bring its own loader and pick it up, which the test checks.
+      # No GPU driver on windows-2022, hence no vulkan-1.dll in System32: the
+      # zip has to bring its own loader and pick it up, which the test checks.
+      # The runner is thrown away afterwards, so the test may also remove
+      # LimeKit from it with --cleanup.
       - name: Smoke test
         shell: pwsh
-        run: ./scripts/smoke-test.ps1 -Dir unpacked/LimeKit
+        run: ./scripts/smoke-test.ps1 -Dir unpacked/LimeKit -WithCleanup
 
   release:
     needs: [build, smoke]

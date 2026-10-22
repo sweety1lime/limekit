@@ -1328,7 +1328,49 @@ function buildSettingsPanel(): HTMLElement {
     qualitySection,
     autoPauseSection,
     buildDiagnosticsSection(),
+    buildRemovalSection(),
   );
+}
+
+function buildRemovalSection(): HTMLElement {
+  return h(
+    "div",
+    { class: "settings-section" },
+    h("span", { class: "section-label" }, "Удаление"),
+    h(
+      "div",
+      { class: "setting-card" },
+      h(
+        "span",
+        { class: "setting-hint" },
+        "Снимает автозапуск и ассоциацию файлов .limekit и останавливает обои. После этого папку с программой можно просто удалить.",
+      ),
+      h(
+        "div",
+        { class: "diag-actions" },
+        h(
+          "button",
+          { class: "btn-ghost danger", type: "button", onClick: () => void removeFromSystem() },
+          "Убрать LimeKit из системы…",
+        ),
+      ),
+    ),
+  );
+}
+
+async function removeFromSystem() {
+  const proceed = await ask(
+    "Обои остановятся, автозапуск и ассоциация файлов .limekit будут сняты, а окно закроется.\n\n" +
+      "Продолжить?",
+    { title: "Убрать LimeKit из системы", kind: "warning", okLabel: "Убрать", cancelLabel: "Отмена" },
+  );
+  if (!proceed) return;
+  const removeData = await ask(
+    "Удалить заодно библиотеку обоев, настройки и кеш окна? Это папки %APPDATA%\\LimeKit и " +
+      "%LOCALAPPDATA%\\com.twofame.limekit, вернуть их не получится.",
+    { title: "Библиотека обоев", kind: "warning", okLabel: "Удалить", cancelLabel: "Оставить" },
+  );
+  await call("remove_from_system", { removeData });
 }
 
 const DIAG_LABELS: Record<string, string> = {

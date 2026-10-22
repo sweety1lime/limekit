@@ -5,15 +5,19 @@
 # zip on a clean machine, so nothing from the build tree can stand in for a
 # missing file.
 #
-# Usage: scripts/smoke-test.ps1 -Dir dist\LimeKit
-param([Parameter(Mandatory)] [string]$Dir)
+# -WithCleanup also runs `LimeKit.exe --cleanup --remove-data` and checks that
+# the daemon, the autostart entry and the data are gone. That removes the real
+# autostart entry and file association of whoever runs it, so only CI passes it.
+#
+# Usage: scripts/smoke-test.ps1 -Dir dist\LimeKit [-WithCleanup]
+param([Parameter(Mandatory)] [string]$Dir, [switch]$WithCleanup)
 $ErrorActionPreference = "Stop"
 $Dir = (Resolve-Path $Dir).Path
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
 $work = Join-Path ([IO.Path]::GetTempPath()) "limekit-smoke-$PID"
 New-Item -ItemType Directory -Force $work | Out-Null
-# Keeps the test away from the real library, wallpapers and autostart.
+# Keeps the test away from the real library and wallpapers.
 $env:LIMEKIT_DATA_DIR = Join-Path $work "data"
 
 $renderer = Join-Path $Dir "renderer.exe"
@@ -29,6 +33,23 @@ function Invoke-Tool {
         throw "$(Split-Path -Leaf $Exe) $($Arguments -join ' ') failed ($LASTEXITCODE):`n$output"
     }
     $output
+}
+
+function Start-Daemon {
+    param([string]$Endpoint, [string]$Out, [string]$Err)
+    # Start-Process joins arguments with spaces and quotes nothing.
+    $process = Start-Process -FilePath $renderer -PassThru -WindowStyle Hidden `
+        -ArgumentList "serve", "--endpoint", $Endpoint, "--state", "`"$(Join-Path $work 'state.json')`"" `
+        -RedirectStandardOutput $Out -RedirectStandardError $Err
+    # Without touching Handle now, ExitCode reads empty once the process is gone.
+    $null = $process.Handle
+    $deadline = (Get-Date).AddSeconds(15)
+    while ($true) {
+        Invoke-Tool $renderer @("ctl", "--endpoint", $Endpoint, "ping") -AllowFailure | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $process }
+        if ($process.HasExited -or (Get-Date) -gt $deadline) { throw "daemon did not answer ping" }
+        Start-Sleep -Milliseconds 300
+    }
 }
 
 Write-Host "== files"
@@ -70,21 +91,9 @@ Write-Host "== daemon"
 $endpoint = "limekit-smoke-$PID"
 $daemonOut = Join-Path $work "daemon-out.txt"
 $daemonErr = Join-Path $work "daemon-err.txt"
-# Start-Process joins arguments with spaces and quotes nothing.
-$daemon = Start-Process -FilePath $renderer -PassThru -WindowStyle Hidden `
-    -ArgumentList "serve", "--endpoint", $endpoint, "--state", "`"$(Join-Path $work 'state.json')`"" `
-    -RedirectStandardOutput $daemonOut -RedirectStandardError $daemonErr
-# Without touching Handle now, ExitCode reads empty once the process is gone.
-$null = $daemon.Handle
+$daemon = Start-Daemon $endpoint $daemonOut $daemonErr
 $ctl = { param([string[]]$Command) Invoke-Tool $renderer (@("ctl", "--endpoint", $endpoint) + $Command) }
 try {
-    $deadline = (Get-Date).AddSeconds(15)
-    while ($true) {
-        Invoke-Tool $renderer @("ctl", "--endpoint", $endpoint, "ping") -AllowFailure | Out-Null
-        if ($LASTEXITCODE -eq 0) { break }
-        if ($daemon.HasExited -or (Get-Date) -gt $deadline) { throw "daemon did not answer ping" }
-        Start-Sleep -Milliseconds 300
-    }
     Write-Host (& $ctl @("list-monitors")).Trim()
 
     & $ctl @("play", $clip) | Out-Null
@@ -123,6 +132,31 @@ catch {
 }
 finally {
     if (-not $daemon.HasExited) { Stop-Process -Id $daemon.Id -Force }
+}
+
+if ($WithCleanup) {
+    Write-Host "== cleanup"
+    $endpoint = "limekit-cleanup-$PID"
+    $daemon = Start-Daemon $endpoint (Join-Path $work "cleanup-out.txt") (Join-Path $work "cleanup-err.txt")
+    try {
+        Invoke-Tool $renderer @("ctl", "--endpoint", $endpoint, "autostart", "on") | Out-Null
+        $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+        if (-not (Get-ItemProperty $runKey).LimeKit) { throw "autostart did not turn on" }
+        New-Item -ItemType Directory -Force (Join-Path $env:LIMEKIT_DATA_DIR "library") | Out-Null
+
+        # What the settings screen and an uninstaller run.
+        $env:LIMEKIT_ENDPOINT = $endpoint
+        $cleanup = Start-Process -FilePath (Join-Path $Dir "LimeKit.exe") -Wait -PassThru `
+            -ArgumentList "--cleanup", "--remove-data"
+        if ($cleanup.ExitCode -ne 0) { throw "cleanup exited with code $($cleanup.ExitCode)" }
+        if (-not $daemon.WaitForExit(5000)) { throw "the daemon outlived the cleanup" }
+        if ((Get-ItemProperty $runKey).LimeKit) { throw "autostart outlived the cleanup" }
+        if (Test-Path $env:LIMEKIT_DATA_DIR) { throw "the data directory outlived the cleanup" }
+        Write-Host "daemon stopped, autostart removed, data removed"
+    }
+    finally {
+        if (-not $daemon.HasExited) { Stop-Process -Id $daemon.Id -Force }
+    }
 }
 
 Remove-Item $work -Recurse -Force
