@@ -157,6 +157,8 @@ I rejected and why. They're in Russian:
 - [Community catalog](docs/research/catalog.md) — moderation, checksums,
   revocation.
 - [Politeness](docs/research/politeness.md) — when and how wallpapers pause.
+- [Tweak journal](docs/research/tweaks-journal.md) — how the upcoming tweaks
+  write down every change before making it, and how it is undone.
 
 ## Decisions and trade-offs
 

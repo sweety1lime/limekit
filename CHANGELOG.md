@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### For developers
+
+- `crates/tweaks`: the engine the tweaks will run on, with no interface yet.
+  Every change is written to a JSON Lines journal before the registry is
+  touched, read back after, and a set of changes takes effect whole or not at
+  all. Changes can be undone one by one, per set or all at once, without
+  overwriting a value something else has changed since; the undo exports as a
+  .reg file that works without LimeKit. How it works and what it does not
+  promise: `docs/research/tweaks-journal.md`.
+- `platform::registry`: HKCU values as their type and bytes exactly as
+  stored, with a missing value told apart from an empty one and access denied
+  apart from other errors.
+- The fetch scripts retry timeouts and server errors.
+
 ## 0.2.1 — no Vulkan driver needed, and a clean way out
 
 Wallpapers now play on machines whose graphics driver has no Vulkan, LimeKit
