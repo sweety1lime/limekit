@@ -19,7 +19,7 @@ if (-not (Test-Path $archive)) {
         "https://github.com/zhongfly/mpv-winbuild/releases/download/$Tag/$Asset"
     foreach ($url in $urls) {
         Write-Host "downloading $url"
-        curl.exe -sfL -o $archive $url
+        curl.exe -sfL --retry 3 --retry-delay 2 -o $archive $url
         if ($LASTEXITCODE -eq 0) { break }
     }
     if ($LASTEXITCODE -ne 0) { throw "download failed from every source: $($urls -join ', ')" }

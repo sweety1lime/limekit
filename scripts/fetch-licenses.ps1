@@ -25,7 +25,7 @@ foreach ($name in $texts.Keys) {
     $target = Join-Path $dir $name
     $url, $preamble = $texts[$name]
     Write-Host "downloading $url"
-    curl.exe -sfL -o $target $url
+    curl.exe -sfL --retry 3 --retry-delay 2 -o $target $url
     if ($LASTEXITCODE -ne 0) { throw "download failed: $url" }
     # A hijacked mirror would not return the license preamble.
     if (-not (Select-String -Path $target -Pattern $preamble -Quiet)) {
