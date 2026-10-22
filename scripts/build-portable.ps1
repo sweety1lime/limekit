@@ -7,22 +7,29 @@
 # scanners can read it. Release builds in CI use it.
 param([switch]$Auditable)
 $ErrorActionPreference = "Stop"
-$cargoBuild = if ($Auditable) { @("auditable", "build") } else { @("build") }
+# Typed: a one-element array would unroll to a plain string, and splatting a
+# string passes it letter by letter.
+[string[]]$cargoBuild = if ($Auditable) { "auditable", "build" } else { "build" }
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $repoRoot "dist\LimeKit"
 
 # Runtime binaries must be fetched first (kept out of git).
 $libmpv = Join-Path $repoRoot "third_party\mpv\unpacked\libmpv-2.dll"
 $ffmpeg = Join-Path $repoRoot "third_party\ffmpeg\unpacked\ffmpeg.exe"
+$vulkan = Join-Path $repoRoot "third_party\vulkan\unpacked"
 if (-not (Test-Path $libmpv)) { throw "run scripts/fetch-libmpv.ps1 first" }
 if (-not (Test-Path $ffmpeg)) { throw "run scripts/fetch-ffmpeg.ps1 first" }
+if (-not (Test-Path (Join-Path $vulkan "vulkan-1.dll"))) { throw "run scripts/fetch-vulkan-loader.ps1 first" }
 
-# LGPL license texts must ship with the LGPL binaries above. Fetch them if the
-# maintainer has not run scripts/fetch-licenses.ps1 yet; only warn when offline
-# so a dev build still completes (a public release must include them).
+# License texts must ship with the binaries above: GNU texts for libmpv and
+# ffmpeg, Apache 2.0 for the Vulkan loader. Fetch them if the maintainer has not
+# run scripts/fetch-licenses.ps1 yet; only warn when offline so a dev build
+# still completes (a public release must include them).
 $vendorLicenses = Join-Path $repoRoot "licenses\vendor"
-if (-not (Test-Path (Join-Path $vendorLicenses "lgpl-3.0.txt"))) {
-    Write-Host "fetching GNU license texts..."
+$missingLicenses = @("lgpl-3.0.txt", "apache-2.0.txt") |
+    Where-Object { -not (Test-Path (Join-Path $vendorLicenses $_)) }
+if ($missingLicenses) {
+    Write-Host "fetching license texts..."
     try { & (Join-Path $PSScriptRoot "fetch-licenses.ps1") }
     catch { Write-Warning "could not fetch license texts (offline?): $_ - bundling notice only" }
 }
@@ -62,6 +69,10 @@ Copy-Item $renderer (Join-Path $out "renderer.exe") -Force
 Copy-Item $daemon (Join-Path $out "limekit-daemon.exe") -Force
 Copy-Item $libmpv $out -Force
 Copy-Item $ffmpeg $out -Force
+# Its own folder, not next to libmpv: there it would shadow the graphics
+# driver's loader. LimeKit loads it only when System32 has none.
+New-Item -ItemType Directory -Force (Join-Path $out "vulkan") | Out-Null
+Copy-Item (Join-Path $vulkan "vulkan-1.dll") (Join-Path $out "vulkan") -Force
 Copy-Item (Join-Path $repoRoot "assets\shaders\FSR.glsl") (Join-Path $out "shaders") -Force
 Copy-Item (Join-Path $repoRoot "assets\shaders\anime4k\*.glsl") (Join-Path $out "shaders\anime4k") -Force
 # Sample web wallpaper for testing.
@@ -71,10 +82,12 @@ Copy-Item (Join-Path $repoRoot "packaging\README-portable.txt") (Join-Path $out 
 # LimeKit itself is GPL-3.0, and the license has to travel with the binaries.
 Copy-Item (Join-Path $repoRoot "LICENSE") (Join-Path $out "LICENSE.txt") -Force
 
-# Third-party license notices (LGPL binaries above + MIT shaders/three.js).
+# Third-party license notices (LGPL binaries above, the Vulkan loader, MIT
+# shaders/three.js).
 $licensesOut = Join-Path $out "licenses"
 New-Item -ItemType Directory -Force $licensesOut | Out-Null
 Copy-Item (Join-Path $repoRoot "licenses\THIRD-PARTY-NOTICES.md") $licensesOut -Force
+Copy-Item (Join-Path $vulkan "VulkanRT-License.txt") $licensesOut -Force
 if (Test-Path $vendorLicenses) {
     Copy-Item (Join-Path $vendorLicenses "*.txt") $licensesOut -Force
 } else {

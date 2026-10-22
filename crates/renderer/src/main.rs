@@ -557,7 +557,12 @@ fn ffmpeg_path() -> Option<PathBuf> {
 fn reencode_video(input: &Path, output: &Path) -> anyhow::Result<()> {
     let ffmpeg = ffmpeg_path()
         .context("ffmpeg not found (set LIMEKIT_FFMPEG or run scripts/fetch-ffmpeg.ps1)")?;
-    let status = std::process::Command::new(&ffmpeg)
+    let mut command = std::process::Command::new(&ffmpeg);
+    // ffmpeg.exe imports vulkan-1.dll too (see platform::vulkan).
+    if let Some(path) = platform::vulkan::child_path() {
+        command.env("PATH", path);
+    }
+    let status = command
         .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
         .arg(input)
         .args([

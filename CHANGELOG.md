@@ -2,7 +2,24 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Video and image wallpapers, GIF import and previews work without a Vulkan
+  driver.** The bundled libmpv and ffmpeg import `vulkan-1.dll`, which only a
+  graphics driver with Vulkan support installs, so old Intel HD graphics,
+  virtual machines and the Microsoft Basic Display Adapter had nothing to play
+  with, since 0.1. LimeKit now carries the Khronos loader, signed by LunarG, in
+  a `vulkan` folder and uses it only when System32 has none, so a driver's own
+  loader still wins.
+- When libmpv cannot be loaded although it is in place, the error says which
+  library is missing instead of telling you to run a developer script.
+- Diagnostics show which Vulkan loader is in use.
+
 ### For developers
+
+- `scripts/fetch-vulkan-loader.ps1` fetches the loader, pinned by hash and
+  mirrored with libmpv; `build-portable.ps1` needs it. `fetch-licenses.ps1`
+  adds the Apache 2.0 text the loader's license requires.
 
 - GitHub Actions (`.github/workflows/build.yml`) checks every push: format,
   clippy, tests, the type check, the portable build, and

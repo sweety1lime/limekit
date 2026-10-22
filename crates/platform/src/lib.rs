@@ -136,6 +136,7 @@ mod win32;
 pub mod appdata;
 pub mod resources;
 pub mod tray;
+pub mod vulkan;
 pub mod watcher;
 
 /// Creates the backend for the current platform.

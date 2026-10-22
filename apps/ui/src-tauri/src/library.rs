@@ -634,6 +634,10 @@ fn ffmpeg_command() -> Result<Command, String> {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
+    // ffmpeg.exe imports vulkan-1.dll (see platform::vulkan).
+    if let Some(path) = platform::vulkan::child_path() {
+        command.env("PATH", path);
+    }
     Ok(command)
 }
 

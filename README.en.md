@@ -98,13 +98,14 @@ the button. Where it goes after that is up to you.
 
 ## Install
 
-Windows 10 or 11, 64-bit, and a graphics driver with Vulkan support. The
-libmpv and ffmpeg in the archive won't start without the system file
-`vulkan-1.dll`, and the graphics driver is what installs it. Recent NVIDIA and
-AMD drivers have it, and so does Intel from 6th-generation Core on. Old
-integrated Intel HD graphics, virtual machines and the Microsoft Basic Display
-Adapter may not. To check, look for `C:\Windows\System32\vulkan-1.dll`.
-Everything else is in the archive.
+Windows 10 or 11, 64-bit. Nothing else to install — it's all in the archive.
+
+0.2.0 is the exception: it still needs a graphics driver with Vulkan support.
+The libmpv and ffmpeg in the archive won't start without the system
+`vulkan-1.dll`, which the driver installs, and old integrated Intel HD
+graphics, virtual machines and the Microsoft Basic Display Adapter may not have
+it. To check, look for `C:\Windows\System32\vulkan-1.dll`. The next version
+brings the Vulkan loader along.
 
 1. Download the archive from
    [Releases](https://github.com/sweety1lime/limekit/releases).
@@ -176,6 +177,15 @@ without the dll, and `libmpv-2.dll` stays a separate file you can replace, which
 is what its LGPL license asks for. The price: when mpv's API changes, I update
 the declarations by hand.
 
+**A bundled Vulkan loader as a fallback, not a replacement.** libmpv and ffmpeg
+import `vulkan-1.dll`, which Windows doesn't have: the graphics driver installs
+it. So that LimeKit also works where the driver didn't (old Intel HD graphics,
+virtual machines), the archive carries the Khronos loader, signed by LunarG, in
+a separate `vulkan` folder, and it's used only when System32 has none. Khronos
+advises against replacing the system loader, since an old copy may not get
+along with newer drivers. The price: 1.7 MB more in the program folder, and
+keeping that copy up to date is on me.
+
 **Containment instead of detection.** I don't try to scan wallpapers for
 malware; a determined author would get past any scanner. Instead a web wallpaper
 has no network and no bridge to native code, and a watchdog pauses any wallpaper
@@ -202,12 +212,14 @@ them. Bugs reach me only through issues with the diagnostics report attached.
 
 ## Build from source
 
-You'll need Rust and Node. First, once — the playback runtimes (LGPL builds) and
-their license texts; details in [docs/third-party.md](docs/third-party.md):
+You'll need Rust and Node. First, once — the playback runtimes (LGPL builds and
+the Vulkan loader) and their license texts; details in
+[docs/third-party.md](docs/third-party.md):
 
 ```
 scripts\fetch-libmpv.ps1
 scripts\fetch-ffmpeg.ps1
+scripts\fetch-vulkan-loader.ps1
 scripts\fetch-licenses.ps1
 ```
 

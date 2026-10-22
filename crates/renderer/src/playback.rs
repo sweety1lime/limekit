@@ -2,7 +2,7 @@
 //! the daemon: player options, startup probing and upscaling shaders.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::Context;
 use clap::ValueEnum;
@@ -321,6 +321,14 @@ fn shader_roots() -> impl Iterator<Item = PathBuf> {
 /// Loads libmpv-2.dll: exe directory / system search first, then the
 /// development checkout location filled by scripts/fetch-libmpv.ps1.
 pub fn load_libmpv() -> anyhow::Result<Arc<mpv::Api>> {
+    // libmpv imports vulkan-1.dll, so the loader has to be in place first.
+    static VULKAN: OnceLock<platform::vulkan::Loader> = OnceLock::new();
+    let vulkan = VULKAN.get_or_init(|| {
+        let loader = platform::vulkan::ensure_loaded();
+        println!("vulkan loader: {loader}");
+        loader
+    });
+
     let primary = mpv::Api::load();
     if let Ok(api) = primary {
         return Ok(api);
@@ -332,7 +340,21 @@ pub fn load_libmpv() -> anyhow::Result<Arc<mpv::Api>> {
     {
         return Ok(api);
     }
-    primary.context(
-        "libmpv-2.dll not found: run scripts/fetch-libmpv.ps1 or place it next to renderer.exe",
-    )
+    let shipped = std::env::current_exe()
+        .ok()
+        .and_then(|exe| Some(exe.parent()?.join("libmpv-2.dll")))
+        .is_some_and(|path| path.is_file());
+    if !shipped {
+        return primary.context(
+            "libmpv-2.dll not found: run scripts/fetch-libmpv.ps1 or place it next to renderer.exe",
+        );
+    }
+    // The file is there, so a library it imports is not.
+    let reason = if *vulkan == platform::vulkan::Loader::Missing {
+        "vulkan-1.dll is neither in System32 nor in the vulkan folder next to renderer.exe; \
+         install a graphics driver with Vulkan support or unpack the LimeKit archive again"
+    } else {
+        "a library it imports is missing or damaged; unpack the LimeKit archive again"
+    };
+    primary.context(format!("libmpv-2.dll could not be loaded: {reason}"))
 }

@@ -1335,6 +1335,7 @@ const DIAG_LABELS: Record<string, string> = {
   daemon: "Фоновый плеер",
   renderer_exe: "Файл renderer.exe",
   libmpv: "Библиотека libmpv-2.dll",
+  vulkan: "Загрузчик Vulkan",
   ffmpeg: "Конвертер ffmpeg",
   monitors: "Мониторы",
   desktop_icons: "Иконки рабочего стола",

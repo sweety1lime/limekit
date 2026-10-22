@@ -41,6 +41,30 @@
   `h264_mf` (Windows MediaFoundation, есть на любой Windows 10+), фолбэк — `libvpx-vp9` (BSD).
   Решение зафиксировано в docs/research/ffmpeg-import.md.
 
+## Загрузчик Vulkan (Apache-2.0, MIT)
+
+- **Что**: `vulkan-1.dll` из Vulkan Runtime 1.4.363.0 (x64), подписан LunarG, Inc.
+  Лежит в отдельной папке `vulkan\` рядом с программами.
+- **Зачем**: `libmpv-2.dll` и `ffmpeg.exe` импортируют `vulkan-1.dll`. В Windows его нет,
+  его ставит драйвер видеокарты с поддержкой Vulkan. Без него не грузится ни libmpv,
+  ни ffmpeg.
+- **Когда используется**: только если в System32 загрузчика нет
+  (`crates/platform/src/vulkan.rs`). Тогда renderer загружает его до libmpv, а ffmpeg
+  получает эту папку в конец PATH. Если загрузчик поставил драйвер, работает он: Khronos
+  [не советует](https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderApplicationInterface.md#bundling-the-loader-with-an-application)
+  подменять системный загрузчик своим, потому что старая копия может не поладить с новыми
+  драйверами.
+- **Источник**: `VulkanRT-X64-1.4.363.0-Components.zip` с
+  <https://sdk.lunarg.com/sdk/download/1.4.363.0/windows/VulkanRT-X64-1.4.363.0-Components.zip>,
+  копия в том же релизе deps-2026-10-22, что и libmpv. Исходники:
+  [KhronosGroup/Vulkan-Loader](https://github.com/KhronosGroup/Vulkan-Loader), тег
+  `vulkan-sdk-1.4.363.0`.
+- **SHA-256 архива**: `A25A927AA8B9F0371048F1861CF88AC3B9BC9B1FB332C42D897C8AB32695769A`.
+- **Как получить**: `scripts/fetch-vulkan-loader.ps1`. Из архива берутся только
+  `x64/vulkan-1.dll` и `VulkanRT-License.txt`.
+- **Лицензия**: `VulkanRT-License.txt` из того же архива и полный текст Apache 2.0
+  (`scripts/fetch-licenses.ps1`) лежат в сборке в `licenses/`.
+
 ## FSR.glsl (MIT)
 
 - **Что**: порт AMD FidelityFX Super Resolution 1.0.2 (EASU + RCAS) для mpv `glsl-shaders`.

@@ -36,7 +36,8 @@ $required = @(
     "LimeKit.exe", "limekit-daemon.exe", "renderer.exe", "libmpv-2.dll", "ffmpeg.exe",
     "LICENSE.txt", "README.txt",
     "licenses\THIRD-PARTY-NOTICES.md", "licenses\lgpl-2.1.txt", "licenses\lgpl-3.0.txt",
-    "licenses\gpl-3.0.txt",
+    "licenses\gpl-3.0.txt", "vulkan\vulkan-1.dll", "licenses\VulkanRT-License.txt",
+    "licenses\apache-2.0.txt",
     "shaders\FSR.glsl", "web\demo\index.html", "web\viewer\three.module.min.js"
 )
 $missing = $required | Where-Object { -not (Test-Path (Join-Path $Dir $_)) }
@@ -52,9 +53,14 @@ if ($reported -ne "renderer $expected") { throw "renderer reports '$reported', C
 
 Write-Host "== pack a video with the bundled ffmpeg"
 $clip = Join-Path $work "clip.mp4"
+# ffmpeg.exe imports vulkan-1.dll; give it the bundled folder the way LimeKit
+# does, for this call only, so the daemon below has to find it on its own.
+$savedPath = $env:PATH
+$env:PATH = "$env:PATH;$(Join-Path $Dir 'vulkan')"
 # mpeg4 is FFmpeg's own encoder: no Media Foundation needed on the runner.
 Invoke-Tool $ffmpeg @("-y", "-loglevel", "error", "-f", "lavfi",
     "-i", "testsrc2=size=640x360:rate=30:duration=2", "-c:v", "mpeg4", $clip) | Out-Null
+$env:PATH = $savedPath
 $package = Join-Path $work "smoke.limekit"
 Invoke-Tool $renderer @("pack", $clip, "--name", "Smoke", "--reencode", "--out", $package) | Out-Null
 $inspected = Invoke-Tool $renderer @("inspect", $package)
@@ -86,6 +92,14 @@ try {
     $status = & $ctl @("status")
     if ($status -notmatch [regex]::Escape("clip.mp4")) { throw "video is not in the status:`n$status" }
     Write-Host $status.Trim()
+
+    # The driver's loader when System32 has one, the bundled copy otherwise.
+    $expected = if (Test-Path (Join-Path $env:SystemRoot "System32\vulkan-1.dll")) { "system" } else { "bundled" }
+    $loaderLine = Select-String -Path $daemonOut -Pattern "^vulkan loader: " | Select-Object -First 1
+    if (-not $loaderLine -or $loaderLine.Line -notmatch "^vulkan loader: $expected") {
+        throw "expected the $expected Vulkan loader, the daemon logged: $($loaderLine.Line)"
+    }
+    Write-Host $loaderLine.Line
 
     # A web wallpaper builds a WebView2 inside the host thread's message loop,
     # the path that once took the whole daemon down.

@@ -81,6 +81,26 @@ fn collect() -> DiagReport {
         )),
     }
 
+    // vulkan-1.dll, which libmpv and ffmpeg import.
+    match platform::vulkan::locate() {
+        platform::vulkan::Loader::System => {
+            checks.push(check("vulkan", "pass", "системный, от драйвера видеокарты"))
+        }
+        platform::vulkan::Loader::Bundled(path) => checks.push(check(
+            "vulkan",
+            "pass",
+            format!(
+                "у драйвера видеокарты своего нет, используется копия из LimeKit: {}",
+                path.display()
+            ),
+        )),
+        platform::vulkan::Loader::Missing => checks.push(check(
+            "vulkan",
+            "fail",
+            "vulkan-1.dll нет ни в System32, ни в папке vulkan рядом с LimeKit — видео и картинки не запустятся. Распакуйте архив LimeKit заново или обновите драйвер видеокарты",
+        )),
+    }
+
     // ffmpeg (needed to import video / convert GIF).
     match library::ffmpeg_path() {
         Some(path) => checks.push(check("ffmpeg", "pass", path.display().to_string())),

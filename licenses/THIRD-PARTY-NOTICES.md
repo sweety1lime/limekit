@@ -6,9 +6,9 @@ their licenses. A full inventory of source-only dependencies (Rust crates, npm
 packages) with their permissive licenses is in `docs/third-party.md`.
 
 The GNU license texts referenced here ship next to this file as
-`lgpl-2.1.txt`, `lgpl-3.0.txt` and `gpl-3.0.txt` (fetch them with
-`scripts/fetch-licenses.ps1`). The full MIT license text is included once at the
-end of this file.
+`lgpl-2.1.txt`, `lgpl-3.0.txt` and `gpl-3.0.txt`, and the Apache License 2.0 as
+`apache-2.0.txt` (fetch them with `scripts/fetch-licenses.ps1`). The full MIT
+license text is included once at the end of this file.
 
 ---
 
@@ -47,6 +47,22 @@ end of this file.
   `23918b32004a517278ba441b9d0cb5307ced0cdb` at <https://git.ffmpeg.org/ffmpeg>.
 - **Replacing it:** swap `ffmpeg.exe` for your own LGPL FFmpeg build; the import
   pipeline invokes it by path.
+
+## Vulkan loader — `vulkan/vulkan-1.dll`  (Apache-2.0, MIT)
+
+- **Use:** `libmpv-2.dll` and `ffmpeg.exe` import `vulkan-1.dll`, which a
+  graphics driver with Vulkan support installs into System32. LimeKit loads this
+  copy only when System32 has none.
+- **Exact build:** LunarG Vulkan Runtime 1.4.363.0, x64, from
+  `VulkanRT-X64-1.4.363.0-Components.zip`, signed by LunarG, Inc. The same
+  archive is mirrored in the LimeKit release `deps-2026-10-22`. Reproduce with
+  `scripts/fetch-vulkan-loader.ps1` (SHA-256 pinned).
+- **Upstream source:** <https://github.com/KhronosGroup/Vulkan-Loader>, tag
+  `vulkan-sdk-1.4.363.0`.
+- **License:** Copyright (c) 2015-2026 The Khronos Group Inc., LunarG, Inc. and
+  Valve Corporation; Apache License 2.0 (`apache-2.0.txt`) with MIT-licensed
+  parts. The runtime's own notice, with the MIT texts, ships as
+  `VulkanRT-License.txt` next to this file.
 
 ## AMD FidelityFX Super Resolution 1.0 — `shaders/FSR.glsl`  (MIT)
 
