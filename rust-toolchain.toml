@@ -1,0 +1,6 @@
+# One compiler for local builds and CI, so a new clippy lint lands in a
+# commit of its own instead of turning an unrelated push red.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
