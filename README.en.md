@@ -236,6 +236,14 @@ scripts\build-portable.ps1
 
 The result lands in `dist/LimeKit/`; run `dist\LimeKit\LimeKit.exe`.
 
+`scripts\smoke-test.ps1 -Dir dist\LimeKit` checks that the folder has every
+file it needs, that its ffmpeg can build a `.limekit` package, and that the
+background process shows a video and a web page and shuts down cleanly. Test
+wallpapers flash on your desktop while it runs. GitHub Actions
+([build.yml](.github/workflows/build.yml)) runs the same on every push: the
+checks, the build, and this test on the unpacked zip on Windows Server 2022 and
+2025.
+
 ## Licensing
 
 LimeKit's own code is [GPL-3.0](LICENSE).

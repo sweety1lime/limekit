@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### For developers
+
+- GitHub Actions (`.github/workflows/build.yml`) checks every push: format,
+  clippy, tests, the type check, the portable build, and
+  `scripts/smoke-test.ps1` on the unpacked zip on Windows Server 2022 and 2025.
+  A `v*` tag builds without caches, attests the zip and the programs in it,
+  attests an SPDX SBOM, and opens a draft release.
+- `scripts/build-portable.ps1 -Auditable` builds through `cargo auditable`, so
+  `cargo audit bin` can check the shipped programs. It now runs the frontend
+  build and cargo itself instead of `tauri build`, which has no way to swap
+  cargo out.
+- The zip is written by the bsdtar that ships with Windows, with forward
+  slashes in entry names; `Compress-Archive` in Windows PowerShell 5.1 wrote
+  backslashes.
+- `rust-toolchain.toml` pins Rust 1.95.0 for local builds and CI alike.
+
 ## 0.2.0 — LimeWall becomes LimeKit
 
 The wallpaper engine is now the first module of a bigger kit for customizing
