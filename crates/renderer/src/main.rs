@@ -51,7 +51,7 @@ enum Command {
         #[arg(long, default_value_t = 0)]
         monitor: platform::MonitorId,
     },
-    /// Package a media file into a `.wpk` for the gallery, printing its
+    /// Package a media file into a `.limekit` for the gallery, printing its
     /// SHA-256, size and a ready catalog entry.
     Pack {
         /// Wallpaper file (mp4/mkv/webm/mov/avi/m4v for video, png/jpg/jpeg/
@@ -76,14 +76,14 @@ enum Command {
         /// Pack id / slug (default: a slug derived from the name).
         #[arg(long)]
         id: Option<String>,
-        /// Output `.wpk` path (default: `<id>.wpk` next to the media).
+        /// Output path (default: `<id>.limekit` in the current directory).
         #[arg(long, short)]
         out: Option<PathBuf>,
     },
-    /// Print the SHA-256, size and a ready catalog entry for existing `.wpk`
-    /// file(s) — for adding packs you already built to the gallery.
+    /// Print the SHA-256, size and a ready catalog entry for existing packages
+    /// — for adding packs you already built to the gallery.
     Inspect {
-        /// One or more `.wpk` files.
+        /// One or more `.limekit` (or 0.1-era `.wpk`) files.
         files: Vec<PathBuf>,
     },
     /// Run the long-lived local IPC daemon.
@@ -305,7 +305,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
-// pack: build a .wpk for the gallery
+// pack: build a .limekit for the gallery
 // ---------------------------------------------------------------------------
 
 const VIDEO_EXTS: [&str; 6] = ["mp4", "mkv", "webm", "mov", "avi", "m4v"];
@@ -407,7 +407,7 @@ fn pack(
         files.push((pname, ppath));
     }
 
-    let out = out.unwrap_or_else(|| PathBuf::from(format!("{id}.wpk")));
+    let out = out.unwrap_or_else(|| PathBuf::from(format!("{id}.{}", wpk::PACK_EXT)));
     wpk::write_package(&out, &manifest, &files)
         .map_err(|error| anyhow::anyhow!("failed to write package: {error}"))?;
 
@@ -415,11 +415,11 @@ fn pack(
     let filename = out
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or("pack.wpk");
+        .unwrap_or("pack.limekit");
     println!("wrote {}", out.display());
     println!("sha256: {sha}");
     println!("size:   {size} bytes");
-    println!("\nCatalog entry (set download_url after you upload the .wpk):\n");
+    println!("\nCatalog entry (set download_url after you upload the package):\n");
     print_catalog_entry(
         &id,
         &name,
@@ -433,9 +433,9 @@ fn pack(
     Ok(())
 }
 
-/// Prints the SHA-256, size and catalog entry for existing `.wpk` file(s).
+/// Prints the SHA-256, size and catalog entry for existing package file(s).
 fn inspect(files: &[PathBuf]) -> anyhow::Result<()> {
-    anyhow::ensure!(!files.is_empty(), "pass at least one .wpk file");
+    anyhow::ensure!(!files.is_empty(), "pass at least one package file");
     for file in files {
         let manifest = wpk::read_manifest(file)
             .map_err(|error| anyhow::anyhow!("{}: {error}", file.display()))?;
@@ -453,7 +453,7 @@ fn inspect(files: &[PathBuf]) -> anyhow::Result<()> {
         let filename = file
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("pack.wpk");
+            .unwrap_or("pack.limekit");
         println!("// {}", file.display());
         print_catalog_entry(
             &manifest.id,

@@ -227,7 +227,7 @@ async fn library_preview(id: String) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
 
-/// Packs a library item into a `.wpk` file at the chosen location.
+/// Packs a library item into a package file at the chosen location.
 #[tauri::command]
 async fn library_export(id: String, target: String) -> Result<(), String> {
     blocking(move || library::Library::default_location()?.export(&id, Path::new(&target))).await
