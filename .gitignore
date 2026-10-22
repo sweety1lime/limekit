@@ -4,9 +4,6 @@
 # Downloaded binaries (see scripts/fetch-libmpv.ps1, docs/third-party.md)
 /third_party
 
-# Canonical GNU license texts (see scripts/fetch-licenses.ps1)
-/licenses/vendor
-
 # Offline gallery signing key — NEVER commit (see gallery/keygen.mjs)
 /gallery/private-key.ed25519
 

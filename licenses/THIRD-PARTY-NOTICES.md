@@ -7,8 +7,8 @@ packages) with their permissive licenses is in `docs/third-party.md`.
 
 The GNU license texts referenced here ship next to this file as
 `lgpl-2.1.txt`, `lgpl-3.0.txt` and `gpl-3.0.txt`, and the Apache License 2.0 as
-`apache-2.0.txt` (fetch them with `scripts/fetch-licenses.ps1`). The full MIT
-license text is included once at the end of this file.
+`apache-2.0.txt`. The full MIT license text is included once at the end of this
+file.
 
 ---
 

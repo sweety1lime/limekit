@@ -225,14 +225,12 @@ smoke-тест на Windows Server 2022 и 2025 и получает аттест
 ## Сборка из исходников
 
 Нужны Rust и Node. Сначала один раз — рантаймы воспроизведения (сборки LGPL и
-загрузчик Vulkan) и тексты их лицензий, подробности в
-[docs/third-party.md](docs/third-party.md):
+загрузчик Vulkan), подробности в [docs/third-party.md](docs/third-party.md):
 
 ```
 scripts\fetch-libmpv.ps1
 scripts\fetch-ffmpeg.ps1
 scripts\fetch-vulkan-loader.ps1
-scripts\fetch-licenses.ps1
 ```
 
 Демон и CLI:

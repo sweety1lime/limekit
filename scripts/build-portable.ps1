@@ -21,19 +21,6 @@ if (-not (Test-Path $libmpv)) { throw "run scripts/fetch-libmpv.ps1 first" }
 if (-not (Test-Path $ffmpeg)) { throw "run scripts/fetch-ffmpeg.ps1 first" }
 if (-not (Test-Path (Join-Path $vulkan "vulkan-1.dll"))) { throw "run scripts/fetch-vulkan-loader.ps1 first" }
 
-# License texts must ship with the binaries above: GNU texts for libmpv and
-# ffmpeg, Apache 2.0 for the Vulkan loader. Fetch them if the maintainer has not
-# run scripts/fetch-licenses.ps1 yet; only warn when offline so a dev build
-# still completes (a public release must include them).
-$vendorLicenses = Join-Path $repoRoot "licenses\vendor"
-$missingLicenses = @("lgpl-3.0.txt", "apache-2.0.txt") |
-    Where-Object { -not (Test-Path (Join-Path $vendorLicenses $_)) }
-if ($missingLicenses) {
-    Write-Host "fetching license texts..."
-    try { & (Join-Path $PSScriptRoot "fetch-licenses.ps1") }
-    catch { Write-Warning "could not fetch license texts (offline?): $_ - bundling notice only" }
-}
-
 Write-Host "building renderer (release)..."
 & cargo @cargoBuild -p renderer --release
 if ($LASTEXITCODE -ne 0) { throw "renderer build failed" }
@@ -82,17 +69,15 @@ Copy-Item (Join-Path $repoRoot "packaging\README-portable.txt") (Join-Path $out 
 # LimeKit itself is GPL-3.0, and the license has to travel with the binaries.
 Copy-Item (Join-Path $repoRoot "LICENSE") (Join-Path $out "LICENSE.txt") -Force
 
-# Third-party license notices (LGPL binaries above, the Vulkan loader, MIT
-# shaders/three.js).
+# Third-party license notices and the full license texts they refer to: GNU
+# texts for the LGPL libmpv and ffmpeg, Apache 2.0 for the Vulkan loader.
+# GPL-3.0 is LimeKit's own LICENSE.
 $licensesOut = Join-Path $out "licenses"
 New-Item -ItemType Directory -Force $licensesOut | Out-Null
 Copy-Item (Join-Path $repoRoot "licenses\THIRD-PARTY-NOTICES.md") $licensesOut -Force
+Copy-Item (Join-Path $repoRoot "licenses\*.txt") $licensesOut -Force
+Copy-Item (Join-Path $repoRoot "LICENSE") (Join-Path $licensesOut "gpl-3.0.txt") -Force
 Copy-Item (Join-Path $vulkan "VulkanRT-License.txt") $licensesOut -Force
-if (Test-Path $vendorLicenses) {
-    Copy-Item (Join-Path $vendorLicenses "*.txt") $licensesOut -Force
-} else {
-    Write-Warning "GNU license texts missing - run scripts/fetch-licenses.ps1 before a public release"
-}
 
 Write-Host ""
 Write-Host "portable build ready: $out"

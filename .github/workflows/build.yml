@@ -65,13 +65,12 @@ jobs:
       - name: Install cargo-auditable
         run: cargo install cargo-auditable --locked --version 0.7.7
 
-      - name: Fetch libmpv, ffmpeg, the Vulkan loader and license texts
+      - name: Fetch libmpv, ffmpeg and the Vulkan loader
         shell: pwsh
         run: |
           ./scripts/fetch-libmpv.ps1
           ./scripts/fetch-ffmpeg.ps1
           ./scripts/fetch-vulkan-loader.ps1
-          ./scripts/fetch-licenses.ps1
 
       - name: Install frontend dependencies
         working-directory: apps/ui

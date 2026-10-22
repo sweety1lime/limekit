@@ -15,6 +15,10 @@
   stored, with a missing value told apart from an empty one and access denied
   apart from other errors.
 - The fetch scripts retry timeouts and server errors.
+- The full license texts (LGPL-2.1, LGPL-3.0, Apache 2.0) are in `licenses/`
+  instead of being downloaded from gnu.org at every build: it kept failing to
+  answer GitHub Actions, and the texts never change. `fetch-licenses.ps1` is
+  gone.
 
 ## 0.2.1 — no Vulkan driver needed, and a clean way out
 

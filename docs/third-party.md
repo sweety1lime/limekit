@@ -5,9 +5,11 @@
 
 **Распространяемое уведомление:** `licenses/THIRD-PARTY-NOTICES.md` — то, что
 кладётся в сборку (атрибуция, LGPL-исходники и право на пере-линковку, текст MIT).
-Каноничные тексты GNU (LGPL-2.1/3.0, GPL-3.0) тянет `scripts/fetch-licenses.ps1`
-в `licenses/vendor/` (не в git, как `third_party/`), а `scripts/build-portable.ps1`
-раскладывает их в `dist/LimeKit/licenses/`.
+Полные тексты LGPL-2.1, LGPL-3.0 и Apache 2.0 лежат в `licenses/` рядом с
+уведомлением, GPL-3.0 — это `LICENSE` в корне, и `scripts/build-portable.ps1`
+раскладывает их в `dist/LimeKit/licenses/`. Тексты хранятся в репозитории, а не
+скачиваются при сборке: gnu.org регулярно не отвечает серверам GitHub Actions, а
+сами тексты не меняются.
 
 ## libmpv (LGPLv2.1+)
 
@@ -63,7 +65,7 @@
 - **Как получить**: `scripts/fetch-vulkan-loader.ps1`. Из архива берутся только
   `x64/vulkan-1.dll` и `VulkanRT-License.txt`.
 - **Лицензия**: `VulkanRT-License.txt` из того же архива и полный текст Apache 2.0
-  (`scripts/fetch-licenses.ps1`) лежат в сборке в `licenses/`.
+  (`licenses/apache-2.0.txt`) лежат в сборке в `licenses/`.
 
 ## FSR.glsl (MIT)
 

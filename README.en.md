@@ -228,14 +228,12 @@ them. Bugs reach me only through issues with the diagnostics report attached.
 ## Build from source
 
 You'll need Rust and Node. First, once — the playback runtimes (LGPL builds and
-the Vulkan loader) and their license texts; details in
-[docs/third-party.md](docs/third-party.md):
+the Vulkan loader); details in [docs/third-party.md](docs/third-party.md):
 
 ```
 scripts\fetch-libmpv.ps1
 scripts\fetch-ffmpeg.ps1
 scripts\fetch-vulkan-loader.ps1
-scripts\fetch-licenses.ps1
 ```
 
 Daemon and CLI:
