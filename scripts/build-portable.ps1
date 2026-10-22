@@ -91,7 +91,8 @@ $sums = foreach ($relative in $hashed) {
     $hash = (Get-FileHash -Algorithm SHA256 (Join-Path $dist $relative)).Hash.ToLower()
     "$hash  $relative"
 }
-Set-Content -Path (Join-Path $dist "SHA256SUMS.txt") -Value $sums -Encoding ascii
+# LF line endings: sha256sum -c reads a trailing CR as part of the file name.
+[IO.File]::WriteAllText((Join-Path $dist "SHA256SUMS.txt"), ($sums -join "`n") + "`n")
 
 Write-Host ""
 Write-Host "release archive: $zip"
