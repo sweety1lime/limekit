@@ -1,7 +1,13 @@
 # Builds a portable LimeKit folder: the UI, the renderer daemon and their
 # runtime dependencies laid out side by side, so LimeKit.exe runs without a
 # dev server. Output: dist/LimeKit/.
+#
+# -Auditable builds through `cargo auditable` (cargo install cargo-auditable),
+# which embeds the dependency list in each .exe so `cargo audit bin` and SBOM
+# scanners can read it. Release builds in CI use it.
+param([switch]$Auditable)
 $ErrorActionPreference = "Stop"
+$cargoBuild = if ($Auditable) { @("auditable", "build") } else { @("build") }
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $repoRoot "dist\LimeKit"
 
@@ -22,12 +28,19 @@ if (-not (Test-Path (Join-Path $vendorLicenses "lgpl-3.0.txt"))) {
 }
 
 Write-Host "building renderer (release)..."
-& cargo build -p renderer --release
+& cargo @cargoBuild -p renderer --release
 if ($LASTEXITCODE -ne 0) { throw "renderer build failed" }
 
-Write-Host "building UI (release, no installer)..."
+# The two steps `tauri build --no-bundle` runs, called directly so that cargo
+# can be swapped for `cargo auditable`, which the Tauri CLI has no hook for.
+Write-Host "building UI frontend..."
 Push-Location (Join-Path $repoRoot "apps\ui")
-& npm.cmd run tauri build -- --no-bundle
+& npm.cmd run build
+if ($LASTEXITCODE -ne 0) { Pop-Location; throw "UI frontend build failed" }
+Pop-Location
+Write-Host "building UI (release, no installer)..."
+Push-Location (Join-Path $repoRoot "apps\ui\src-tauri")
+& cargo @cargoBuild --bins --features tauri/custom-protocol --release
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "UI build failed" }
 Pop-Location
 
@@ -83,7 +96,12 @@ $dist = Split-Path -Parent $out
 $zipName = "LimeKit-$version-win64.zip"
 $zip = Join-Path $dist $zipName
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path $out -DestinationPath $zip
+# The bsdtar that ships with Windows 10+, not Compress-Archive: Windows
+# PowerShell 5.1 writes backslashes into zip entry names, which the zip format
+# does not allow and unzip on other systems warns about. Full path, because Git
+# for Windows can put GNU tar, which cannot write zip, earlier on PATH.
+& (Join-Path $env:SystemRoot "System32\tar.exe") -a -c -f $zip -C $dist (Split-Path -Leaf $out)
+if ($LASTEXITCODE -ne 0) { throw "zip failed" }
 
 $hashed = @($zipName) + (@("LimeKit.exe", "limekit-daemon.exe", "renderer.exe") |
     ForEach-Object { "LimeKit/$_" })
