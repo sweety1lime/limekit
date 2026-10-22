@@ -14,6 +14,10 @@ Windows, so it got a name that fits. Everything you had carries over.
   `.wpk` files from 0.1 still open, double-click included.
 - **The code is licensed under GPL-3.0.** It was public before, but without a
   license, which legally meant nobody could do anything with it.
+- **Newer libmpv and FFmpeg**: the 2026-10-22 builds (mpv `488fec0789`, client
+  API 2.6; FFmpeg `N-127937-g23918b320`). On a Vega 10 laptop CPU, GPU load and
+  GPU memory stayed where they were in every quality profile; the numbers are
+  in `docs/comparisons/2026-10-22-libmpv-update.md`.
 
 ### Upgrading from LimeWall 0.1
 
@@ -39,6 +43,12 @@ Run LimeKit and it takes over by itself:
 - `scripts/build-portable.ps1` now also produces
   `dist/LimeKit-<version>-win64.zip` and `dist/SHA256SUMS.txt`, and puts
   `LICENSE.txt` in the folder.
+- zhongfly prunes its releases after about a month, and the build 0.1 used is
+  already gone. `fetch-libmpv.ps1` and `fetch-ffmpeg.ps1` now download from
+  this repository's `deps-2026-10-22` release first and from zhongfly second,
+  under the same pinned hash. A failed download now says so instead of
+  reporting a hash mismatch on a 404 page.
+- `renderer pack` writes `<id>.limekit` instead of `<id>.wpk`.
 
 ## 0.1.0-beta
 

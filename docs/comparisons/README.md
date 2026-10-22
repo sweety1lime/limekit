@@ -6,7 +6,9 @@ This directory stores screenshots made from the same frame and monitor for the
 
 The repository also contains a reproducible synthetic 1280x720 chart generated
 by `scripts/generate-upscale-test-chart.ps1`. Preliminary 1080p results and
-their limitations are recorded in `2026-07-10-win10-1080p.md`.
+their limitations are recorded in `2026-07-10-win10-1080p.md`. The CPU, GPU
+and GPU memory check of the libmpv update shipped in 0.2.0 is in
+`2026-10-22-libmpv-update.md`.
 
 Run each profile from the repository root, pause on the same frame, then use the
 runtime screenshot command:

@@ -1,9 +1,10 @@
 # Downloads the pinned LGPL libmpv build and puts libmpv-2.dll next to the
 # renderer binaries. Source and licensing: docs/third-party.md.
 param(
-    [string]$Tag = "2026-07-10-e5486b96d7",
-    [string]$Asset = "mpv-dev-lgpl-x86_64-20260710-git-e5486b96d7.7z",
-    [string]$Sha256 = "826F2F7FA72E8DF4912327703D9EF3CF7D6E5A0F42D8002A11A554142BED0616"
+    [string]$Tag = "2026-10-22-488fec0789",
+    [string]$Mirror = "deps-2026-10-22",
+    [string]$Asset = "mpv-dev-lgpl-x86_64-20261022-git-488fec0789.7z",
+    [string]$Sha256 = "97A5D329A271E6AD08E3C9A0FC0CBED0362ABB49E559117E2E1AFE80FBA17894"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,10 +14,16 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 $archive = Join-Path $dir $Asset
 
 if (-not (Test-Path $archive)) {
-    $url = "https://github.com/zhongfly/mpv-winbuild/releases/download/$Tag/$Asset"
-    Write-Host "downloading $url"
-    curl.exe -sL -o $archive $url
-    if ($LASTEXITCODE -ne 0) { throw "download failed" }
+    # zhongfly prunes releases after about a month, so the same archive is also
+    # attached to a release of ours. The pinned hash covers both copies.
+    $urls = "https://github.com/sweety1lime/limekit/releases/download/$Mirror/$Asset",
+        "https://github.com/zhongfly/mpv-winbuild/releases/download/$Tag/$Asset"
+    foreach ($url in $urls) {
+        Write-Host "downloading $url"
+        curl.exe -sfL -o $archive $url
+        if ($LASTEXITCODE -eq 0) { break }
+    }
+    if ($LASTEXITCODE -ne 0) { throw "download failed from every source: $($urls -join ', ')" }
 }
 
 $hash = (Get-FileHash $archive -Algorithm SHA256).Hash

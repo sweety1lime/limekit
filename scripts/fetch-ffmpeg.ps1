@@ -1,9 +1,10 @@
 # Downloads the pinned LGPL ffmpeg build used by the library import pipeline
 # (GIF -> mp4, previews). Source and licensing: docs/third-party.md.
 param(
-    [string]$Tag = "2026-07-10-e5486b96d7",
-    [string]$Asset = "ffmpeg-lgpl-x86_64-git-35f8f4bdc.7z",
-    [string]$Sha256 = "4EBCF42AF804FC5B6119C1C2D248B2509707A773A3A1F76B81F97E77BE353E48"
+    [string]$Tag = "2026-10-22-488fec0789",
+    [string]$Mirror = "deps-2026-10-22",
+    [string]$Asset = "ffmpeg-lgpl-x86_64-git-23918b320.7z",
+    [string]$Sha256 = "B36232825C35ED91D84624C437FEF27259D8F156BE7C6F97C6E70A573B3AC01E"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,10 +14,15 @@ New-Item -ItemType Directory -Force $dir | Out-Null
 $archive = Join-Path $dir $Asset
 
 if (-not (Test-Path $archive)) {
-    $url = "https://github.com/zhongfly/mpv-winbuild/releases/download/$Tag/$Asset"
-    Write-Host "downloading $url"
-    curl.exe -sL -o $archive $url
-    if ($LASTEXITCODE -ne 0) { throw "download failed" }
+    # Mirrored for the same reason as libmpv (see fetch-libmpv.ps1).
+    $urls = "https://github.com/sweety1lime/limekit/releases/download/$Mirror/$Asset",
+        "https://github.com/zhongfly/mpv-winbuild/releases/download/$Tag/$Asset"
+    foreach ($url in $urls) {
+        Write-Host "downloading $url"
+        curl.exe -sfL -o $archive $url
+        if ($LASTEXITCODE -eq 0) { break }
+    }
+    if ($LASTEXITCODE -ne 0) { throw "download failed from every source: $($urls -join ', ')" }
 }
 
 $hash = (Get-FileHash $archive -Algorithm SHA256).Hash

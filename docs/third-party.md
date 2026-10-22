@@ -11,10 +11,15 @@
 
 ## libmpv (LGPLv2.1+)
 
-- **Что**: `libmpv-2.dll`, client API v2.5; ffmpeg (LGPL-конфигурация) статически влинкован внутрь dll.
+- **Что**: `libmpv-2.dll`, client API v2.6; ffmpeg (LGPL-конфигурация) статически влинкован внутрь dll.
 - **Источник**: <https://github.com/zhongfly/mpv-winbuild> (GitHub Actions сборки mpv c `-Dgpl=false`),
-  релиз **2026-07-10-e5486b96d7**, артефакт `mpv-dev-lgpl-x86_64-20260710-git-e5486b96d7.7z`.
-- **SHA-256 архива**: `826F2F7FA72E8DF4912327703D9EF3CF7D6E5A0F42D8002A11A554142BED0616`.
+  релиз **2026-10-22-488fec0789**, артефакт `mpv-dev-lgpl-x86_64-20261022-git-488fec0789.7z`,
+  коммит mpv `488fec0789e5026804ac8dd03fb749570416d48a`.
+- **Зеркало**: тот же архив лежит в релизе
+  [deps-2026-10-22](https://github.com/sweety1lime/limekit/releases/tag/deps-2026-10-22).
+  zhongfly удаляет релизы примерно через месяц, и без зеркала старую версию LimeKit
+  уже не собрать: так пропала июльская сборка, на которой вышла 0.1.
+- **SHA-256 архива**: `97A5D329A271E6AD08E3C9A0FC0CBED0362ABB49E559117E2E1AFE80FBA17894`.
 - **Как получить**: `scripts/fetch-libmpv.ps1` (проверяет хэш, кладёт dll рядом с renderer.exe).
   В репозиторий dll не коммитится (`third_party/` в .gitignore).
 - **Связывание**: только динамическое, загрузка в рантайме через `libloading`
@@ -26,9 +31,11 @@
 
 - **Что**: `ffmpeg.exe` для импорт-пайплайна библиотеки (GIF → mp4, jpg-превью).
   Запускается отдельным процессом — в наш код ничего не линкуется.
-- **Источник**: <https://github.com/zhongfly/mpv-winbuild>, релиз **2026-07-10-e5486b96d7**,
-  артефакт `ffmpeg-lgpl-x86_64-git-35f8f4bdc.7z` (сборка с `--enable-version3`, без GPL-компонентов).
-- **SHA-256 архива**: `4EBCF42AF804FC5B6119C1C2D248B2509707A773A3A1F76B81F97E77BE353E48`.
+- **Источник**: <https://github.com/zhongfly/mpv-winbuild>, релиз **2026-10-22-488fec0789**,
+  артефакт `ffmpeg-lgpl-x86_64-git-23918b320.7z` (сборка с `--enable-version3`, без GPL-компонентов),
+  коммит FFmpeg `23918b32004a517278ba441b9d0cb5307ced0cdb` (`ffmpeg -version`: `N-127937-g23918b320`).
+  Зеркало то же, что у libmpv.
+- **SHA-256 архива**: `B36232825C35ED91D84624C437FEF27259D8F156BE7C6F97C6E70A573B3AC01E`.
 - **Как получить**: `scripts/fetch-ffmpeg.ps1`; в репозиторий бинарник не коммитится.
 - **Важно про энкодеры**: libx264 в LGPL-сборке отсутствует (он GPL). GIF → mp4 кодируется
   `h264_mf` (Windows MediaFoundation, есть на любой Windows 10+), фолбэк — `libvpx-vp9` (BSD).

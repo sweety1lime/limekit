@@ -22,10 +22,12 @@ end of this file.
   `--enable-version3` (see below). Combining mpv (LGPL-2.1-or-later) with those
   LGPL-3.0 components means the distributed `libmpv-2.dll` is conveyed under
   **LGPL-3.0-or-later**; both license texts are included.
-- **Exact build:** `zhongfly/mpv-winbuild` release `2026-07-10-e5486b96d7`,
-  artifact `mpv-dev-lgpl-x86_64-20260710-git-e5486b96d7.7z`, built with
-  `-Dgpl=false`. Reproduce with `scripts/fetch-libmpv.ps1` (SHA-256 pinned).
-- **Upstream source:** <https://mpv.io> · <https://github.com/mpv-player/mpv>.
+- **Exact build:** `zhongfly/mpv-winbuild` release `2026-10-22-488fec0789`,
+  artifact `mpv-dev-lgpl-x86_64-20261022-git-488fec0789.7z`, built with
+  `-Dgpl=false`. The same archive is mirrored in the LimeKit release
+  `deps-2026-10-22`. Reproduce with `scripts/fetch-libmpv.ps1` (SHA-256 pinned).
+- **Upstream source:** <https://mpv.io> · mpv commit
+  <https://github.com/mpv-player/mpv/tree/488fec0789e5026804ac8dd03fb749570416d48a>.
 - **Replacing it (LGPL relinking right):** because libmpv is a standalone DLL
   loaded at runtime, you may substitute your own build of a client-API-compatible
   `libmpv-2.dll` in the install folder and LimeKit will use it — no relinking of
@@ -36,11 +38,13 @@ end of this file.
 - **Use:** the library import pipeline runs `ffmpeg.exe` as a **separate
   process** (GIF → mp4 conversion, JPEG previews). Nothing from FFmpeg is linked
   into LimeKit.
-- **Exact build:** `zhongfly/mpv-winbuild` release `2026-07-10-e5486b96d7`,
-  artifact `ffmpeg-lgpl-x86_64-git-35f8f4bdc.7z`, configured with
-  `--enable-version3` and **without** any GPL components. Reproduce with
-  `scripts/fetch-ffmpeg.ps1` (SHA-256 pinned).
-- **Upstream source:** <https://ffmpeg.org> · <https://git.ffmpeg.org/ffmpeg>.
+- **Exact build:** `zhongfly/mpv-winbuild` release `2026-10-22-488fec0789`,
+  artifact `ffmpeg-lgpl-x86_64-git-23918b320.7z`, configured with
+  `--enable-version3` and **without** any GPL components. Mirrored in the
+  LimeKit release `deps-2026-10-22`. Reproduce with `scripts/fetch-ffmpeg.ps1`
+  (SHA-256 pinned).
+- **Upstream source:** <https://ffmpeg.org> · FFmpeg commit
+  `23918b32004a517278ba441b9d0cb5307ced0cdb` at <https://git.ffmpeg.org/ffmpeg>.
 - **Replacing it:** swap `ffmpeg.exe` for your own LGPL FFmpeg build; the import
   pipeline invokes it by path.
 
