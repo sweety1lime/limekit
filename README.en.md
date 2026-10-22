@@ -98,7 +98,13 @@ the button. Where it goes after that is up to you.
 
 ## Install
 
-Windows 10 or 11, 64-bit. Nothing else to install — it's all in the archive.
+Windows 10 or 11, 64-bit, and a graphics driver with Vulkan support. The
+libmpv and ffmpeg in the archive won't start without the system file
+`vulkan-1.dll`, and the graphics driver is what installs it. Recent NVIDIA and
+AMD drivers have it, and so does Intel from 6th-generation Core on. Old
+integrated Intel HD graphics, virtual machines and the Microsoft Basic Display
+Adapter may not. To check, look for `C:\Windows\System32\vulkan-1.dll`.
+Everything else is in the archive.
 
 1. Download the archive from
    [Releases](https://github.com/sweety1lime/limekit/releases).
