@@ -76,6 +76,10 @@ jobs:
         working-directory: apps/ui
         run: npm ci
 
+      # The libmpv test loads the real DLL, which needs vulkan-1.dll.
+      - id: vulkan
+        uses: ./.github/actions/vulkan-loader
+
       - name: Format
         run: |
           cargo fmt --all -- --check
@@ -91,7 +95,10 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Tests
+        env:
+          VULKAN_DIR: ${{ steps.vulkan.outputs.dir }}
         run: |
+          export PATH="$PATH:$(cygpath -u "$VULKAN_DIR")"
           cargo test --workspace --locked
           # The UI's end-to-end daemon test starts target/debug/renderer.exe
           # and skips itself when it is missing, which cargo test alone leaves.
@@ -142,9 +149,16 @@ jobs:
         shell: pwsh
         run: Expand-Archive (Get-Item dist/LimeKit-*-win64.zip) -DestinationPath unpacked
 
+      - id: vulkan
+        uses: ./.github/actions/vulkan-loader
+
       - name: Smoke test
         shell: pwsh
-        run: ./scripts/smoke-test.ps1 -Dir unpacked/LimeKit
+        env:
+          VULKAN_DIR: ${{ steps.vulkan.outputs.dir }}
+        run: |
+          $env:PATH += ";$env:VULKAN_DIR"
+          ./scripts/smoke-test.ps1 -Dir unpacked/LimeKit
 
   release:
     needs: [build, smoke]
