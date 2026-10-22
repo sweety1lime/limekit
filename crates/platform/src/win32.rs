@@ -520,7 +520,14 @@ fn handle_request(request: &mut Request) {
 }
 
 fn watchdog_tick() {
-    WORKER.with_borrow_mut(|slot| {
+    // Building a WebView2 pumps messages while the worker is borrowed (the
+    // web-surface request and the watchdog's own rebuild), and a cold start
+    // can take longer than the timer interval. Skip that tick: the next one
+    // comes after the build.
+    WORKER.with(|cell| {
+        let Ok(mut slot) = cell.try_borrow_mut() else {
+            return;
+        };
         let Some(worker) = slot.as_mut() else {
             return;
         };
@@ -1267,6 +1274,13 @@ fn target_monitor_bounds(monitors: &[MonitorInfo], monitor_name: &str) -> Option
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn watchdog_tick_inside_a_borrowed_worker_does_not_panic() {
+        // What a WebView2 build does: its message pump runs the watchdog timer
+        // while the web-surface request still holds the worker.
+        WORKER.with_borrow_mut(|_| watchdog_tick());
+    }
 
     fn monitor(id: usize, name: &str, bounds: Rect) -> MonitorInfo {
         MonitorInfo {

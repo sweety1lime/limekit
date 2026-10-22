@@ -19,6 +19,13 @@ Windows, so it got a name that fits. Everything you had carries over.
   GPU memory stayed where they were in every quality profile; the numbers are
   in `docs/comparisons/2026-10-22-libmpv-update.md`.
 
+### Fixed
+
+- **HTML and 3D wallpapers took down the background process** whenever
+  WebView2 needed more than a second to start, which on a slow laptop on
+  battery was every time. The wallpaper never appeared and the app lost its
+  connection. 0.1 had the same bug; it went unnoticed on a fast desktop.
+
 ### Upgrading from LimeWall 0.1
 
 Run LimeKit and it takes over by itself:
