@@ -43,19 +43,24 @@ impl Registry for CurrentUser {
 
 #[cfg(test)]
 pub(crate) mod fake {
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+    use platform::parameters::{Parameter, ParameterError};
 
     use super::*;
+    use crate::parameters::Parameters;
 
-    /// An in-memory hive. Paths and names are case-insensitive, as in the
-    /// registry. It can also refuse writes or swallow them, the two ways
-    /// Windows turns a change down.
+    /// An in-memory hive and set of system parameters. Paths and names are
+    /// case-insensitive, as in the registry. It can also refuse writes or
+    /// swallow them, the two ways Windows turns a change down. A parameter
+    /// nobody has set is on, as most are by default.
     #[derive(Debug, Default)]
     pub struct FakeRegistry {
         values: BTreeMap<(String, String), RawValue>,
         keys: BTreeSet<String>,
         denied: BTreeSet<String>,
         ignored: BTreeSet<String>,
+        parameters: HashMap<Parameter, bool>,
     }
 
     fn fold(text: &str) -> String {
@@ -142,6 +147,17 @@ pub(crate) mod fake {
             }
             self.keys.remove(&key);
             Ok(true)
+        }
+    }
+
+    impl Parameters for FakeRegistry {
+        fn get(&self, parameter: Parameter) -> Result<bool, ParameterError> {
+            Ok(self.parameters.get(&parameter).copied().unwrap_or(true))
+        }
+
+        fn set(&mut self, parameter: Parameter, on: bool) -> Result<(), ParameterError> {
+            self.parameters.insert(parameter, on);
+            Ok(())
         }
     }
 }

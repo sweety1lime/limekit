@@ -18,11 +18,20 @@ pub fn undo_reg_text(entries: &[Entry]) -> String {
          ; Ключи, которые LimeKit создал, останутся, но пустыми.\r\n",
     );
     let mut current_key: Option<&str> = None;
+    let mut parameters = Vec::new();
     for entry in entries.iter().rev() {
         if entry.state != State::Applied {
             continue;
         }
-        let Target::Registry { path, name } = &entry.target;
+        let (path, name) = match &entry.target {
+            Target::Registry { path, name } => (path, name),
+            Target::Parameter { name } => {
+                if !parameters.contains(name) {
+                    parameters.push(*name);
+                }
+                continue;
+            }
+        };
         if current_key != Some(path.as_str()) {
             let _ = write!(text, "\r\n[HKEY_CURRENT_USER\\{path}]\r\n");
             current_key = Some(path);
@@ -33,6 +42,17 @@ pub fn undo_reg_text(entries: &[Entry]) -> String {
             format!("\"{}\"", escape(name))
         };
         let _ = write!(text, "{name}={}\r\n", data(entry.before.value.as_ref()));
+    }
+    if !parameters.is_empty() {
+        // A .reg file only writes the registry, and Windows reads these
+        // settings from it only at sign-in, so they are left to LimeKit or
+        // Settings.
+        let names: Vec<&str> = parameters.iter().map(|name| name.action_name()).collect();
+        let _ = write!(
+            text,
+            "\r\n; Не входят: системные параметры, их вернёт LimeKit или Параметры Windows:\r\n; {}\r\n",
+            names.join(", ")
+        );
     }
     text
 }
@@ -170,6 +190,15 @@ mod tests {
             entry(2, r"Software\A", "V", Some(Value::Dword(1)), State::Applied),
         ];
         assert_eq!(body(&entries).last().unwrap(), r#""V"=dword:00000000"#);
+    }
+
+    #[test]
+    fn names_the_system_parameters_it_cannot_restore() {
+        let mut parameter = entry(1, "", "", Some(Value::Dword(1)), State::Applied);
+        parameter.target = Target::Parameter {
+            name: platform::parameters::Parameter::MenuAnimation,
+        };
+        assert_eq!(body(&[parameter]).last().unwrap(), "; SPI_SETMENUANIMATION");
     }
 
     #[test]

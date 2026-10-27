@@ -67,6 +67,8 @@ const strings = {
   "confirm.cancel": { ru: "Отмена", en: "Cancel" },
 
   "value.absent": { ru: "нет значения", en: "no value" },
+  "value.on": { ru: "включено", en: "on" },
+  "value.off": { ru: "выключено", en: "off" },
 
   "outcome.on": { ru: "«{title}» включено", en: "“{title}” is on" },
   "outcome.off": { ru: "«{title}» выключено", en: "“{title}” is off" },
@@ -84,6 +86,19 @@ const strings = {
     en: "Windows took the change but kept its own value: {target}. Nothing changed.",
   },
   "outcome.notAvailable": { ru: "Этот твик не для вашей Windows", en: "This tweak is not for your Windows" },
+
+  "restart.pending": {
+    ru: "Часть изменений появится после перезапуска Проводника.",
+    en: "Some changes show once File Explorer restarts.",
+  },
+  "restart.button": { ru: "Перезапустить Проводник", en: "Restart File Explorer" },
+  "restart.question": {
+    ru: "Панель задач и значки рабочего стола пропадут на несколько секунд, открытые окна Проводника закроются. Программы и документы это не затронет.",
+    en: "The taskbar and desktop icons disappear for a few seconds and open File Explorer windows close. Programs and documents are not affected.",
+  },
+  "restart.ok": { ru: "Перезапустить", en: "Restart" },
+  "restart.running": { ru: "Перезапускаю Проводник…", en: "Restarting File Explorer…" },
+  "restart.done": { ru: "Проводник перезапущен", en: "File Explorer restarted" },
 
   "undoAll.title": { ru: "Вернуть всё", en: "Undo everything" },
   "undoAll.question": {

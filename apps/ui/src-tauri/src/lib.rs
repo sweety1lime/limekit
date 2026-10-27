@@ -478,6 +478,7 @@ pub fn run() {
             tweak_panel::tweaks_undo_all,
             tweak_panel::tweaks_export_undo,
             tweak_panel::tweak_open_settings,
+            tweak_panel::restart_explorer,
         ])
         .setup(|app| {
             // Double-clicking a .wpk should land here (per-user, no admin).

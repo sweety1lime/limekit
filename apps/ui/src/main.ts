@@ -140,6 +140,7 @@ interface TweaksView {
 
 interface PreviewLine {
   target: string;
+  parameter: boolean;
   current: RegValue | null;
   next: RegValue | null;
 }
@@ -152,6 +153,7 @@ type SwitchOutcome =
 interface UndoAll {
   reverted: number;
   changed_since: string[];
+  restart_explorer: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,6 +235,7 @@ let tweaksOpen = false;
 let tweaksView: TweaksView | null = null;
 let tweaksError: string | null = null;
 let tweakBusy: string | null = null; // id of the tweak being switched
+let explorerRestartPending = false; // a switched tweak shows only after Explorer restarts
 // Library item ids that came from the gallery — persisted, drives the
 // "✓ из каталога" badge on library cards.
 const galleryVerified = new Set<string>(readJson<string[]>("lw-gallery-verified", []));
@@ -757,6 +760,13 @@ function availabilityText(availability: Availability): string {
   }
 }
 
+// A system parameter is on (1) or off (0).
+function describeFlag(value: RegValue | null): string {
+  if (value?.type === "dword" && value.data === 1) return t("value.on");
+  if (value?.type === "dword" && value.data === 0) return t("value.off");
+  return describeValue(value);
+}
+
 function describeValue(value: RegValue | null): string {
   if (!value) return t("value.absent");
   switch (value.type) {
@@ -801,6 +811,16 @@ function buildTweaks(): HTMLElement {
     if (view.drift.length) {
       const names = view.drift.map((id) => view.tweaks.find((tweak) => tweak.id === id)?.title ?? id);
       list.append(h("div", { class: "tweaks-drift" }, t("tweaks.drift", { list: names.join(", ") })));
+    }
+    if (explorerRestartPending) {
+      list.append(
+        h(
+          "div",
+          { class: "tweaks-restart" },
+          h("span", {}, t("restart.pending")),
+          h("button", { class: "btn-primary small", type: "button", onClick: () => void restartExplorer() }, t("restart.button")),
+        ),
+      );
     }
     if (view.tweaks.length === 0) list.append(h("div", { class: "grid-empty" }, t("tweaks.empty")));
     for (const tweak of view.tweaks) list.append(renderTweak(tweak));
@@ -866,7 +886,10 @@ async function switchTweak(tweak: TweakView, on: boolean) {
   const lines = await call<PreviewLine[]>("tweak_preview", { id: tweak.id, on });
   const parts = [
     t("confirm.changes"),
-    ...lines.map((line) => `${line.target}\n    ${describeValue(line.current)} → ${describeValue(line.next)}`),
+    ...lines.map((line) => {
+      const describe = line.parameter ? describeFlag : describeValue;
+      return `${line.target}\n    ${describe(line.current)} → ${describe(line.next)}`;
+    }),
   ];
   if (!on && tweak.applied) parts.push("", t("confirm.revert"));
   if (on && tweak.availability.kind === "unverified") parts.push("", t("confirm.unverified"));
@@ -897,6 +920,7 @@ function reportSwitch(tweak: TweakView, on: boolean, outcome: SwitchOutcome) {
       const effect = EFFECT_TEXT[tweak.takes_effect];
       const done = t(on ? "outcome.on" : "outcome.off", { title: tweak.title });
       report(effect ? `${done}: ${t(effect)}` : done);
+      if (tweak.takes_effect === "explorer_restart") explorerRestartPending = true;
       break;
     }
     case "already_set":
@@ -932,10 +956,30 @@ async function undoAll() {
       text += `. ${t("outcome.changedSince", { list: result.changed_since.join(", ") })}`;
     }
     report(text, result.changed_since.length > 0);
+    if (result.restart_explorer) explorerRestartPending = true;
   } catch {
     // error text is already shown by call()
   }
   await loadTweaks();
+}
+
+async function restartExplorer() {
+  const proceed = await ask(t("restart.question"), {
+    title: t("restart.button"),
+    kind: "warning",
+    okLabel: t("restart.ok"),
+    cancelLabel: t("confirm.cancel"),
+  });
+  if (!proceed) return;
+  report(t("restart.running"));
+  try {
+    await call<void>("restart_explorer");
+    explorerRestartPending = false;
+    report(t("restart.done"));
+  } catch {
+    // error text is already shown by call()
+  }
+  if (tweaksOpen) renderContent();
 }
 
 async function exportUndo() {

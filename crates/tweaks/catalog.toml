@@ -7,16 +7,22 @@
 #              observed     undocumented, but what Windows' own settings write.
 #              unsupported  a trick Windows does not support and may drop.
 # takes_effect immediately | explorer_restart | sign_out
-# path         a key under HKEY_CURRENT_USER, without the hive.
+# notify       the WM_SETTINGCHANGE area to announce after a switch, as
+#              Windows' own settings do, so open windows pick the change up.
+# path, name   a key under HKEY_CURRENT_USER, without the hive, and a value.
+# parameter    instead of path and name: a system parameter set through
+#              SystemParametersInfo, on and off as DWORD 1 and 0.
 # on / off     a value such as { type = "dword", data = 1 }, or "delete".
 #              off is the Windows default.
+# missing      what Windows goes by while the value does not exist yet.
 # requires     min_build, below_build ("26100" or "26100.3915"), editions
 #              (home, pro, enterprise, education, server), verified = [builds
 #              it was checked on], native_since + settings_uri when Windows
 #              has its own switch for it from that build on.
 #
 # A tweak counts as verified on a build only after someone has turned it on
-# and off there and seen it work. Until then LimeKit says it is unverified.
+# and off there and seen it work. Until then LimeKit says it is unverified,
+# and takes_effect is the cautious guess.
 
 [[tweak]]
 id = "explorer.file_extensions"

@@ -134,8 +134,10 @@ mod watcher_win32;
 mod win32;
 
 pub mod appdata;
+pub mod parameters;
 pub mod registry;
 pub mod resources;
+pub mod shell;
 pub mod system;
 pub mod tray;
 pub mod vulkan;

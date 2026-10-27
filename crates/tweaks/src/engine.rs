@@ -3,10 +3,12 @@
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use platform::parameters::ParameterError;
 use platform::registry::{RawValue, RegistryError};
 
 pub use crate::journal::{Before, EntryId, SessionId, Target};
 use crate::journal::{Event, Journal, JournalError};
+use crate::parameters::Parameters;
 use crate::registry::Registry;
 use crate::value::Value;
 
@@ -78,6 +80,14 @@ pub enum EngineError {
     Journal(#[from] JournalError),
     #[error(transparent)]
     Registry(#[from] RegistryError),
+    #[error(transparent)]
+    Parameter(#[from] ParameterError),
+    /// A system parameter is on or off; anything else cannot be written to it.
+    #[error("{target} is 0 or 1, not {value:?}")]
+    NotAFlag {
+        target: Target,
+        value: Option<Value>,
+    },
     /// The registry accepted the write, but reading it back shows something
     /// else.
     #[error("{target}: read back {read_back:?} after writing it")]
@@ -111,13 +121,13 @@ impl ApplyError {
     }
 }
 
-pub struct Engine<R: Registry> {
+pub struct Engine<R: Registry + Parameters> {
     registry: R,
     journal: Journal,
     entries: Vec<Entry>,
 }
 
-impl<R: Registry> Engine<R> {
+impl<R: Registry + Parameters> Engine<R> {
     /// Opens the journal at `journal_path` and settles any change a crash left
     /// unconfirmed, by looking at what the registry holds now.
     pub fn open(registry: R, journal_path: &Path) -> Result<Self, EngineError> {
@@ -145,6 +155,11 @@ impl<R: Registry> Engine<R> {
 
     pub fn registry(&self) -> &R {
         &self.registry
+    }
+
+    /// What `target` holds now.
+    pub fn current(&self, target: &Target) -> Result<Option<Value>, EngineError> {
+        Ok(self.read(target)?.as_ref().map(Value::from_raw))
     }
 
     /// Applies `changes` for `tweak` as one session: each is written down,
@@ -296,7 +311,7 @@ impl<R: Registry> Engine<R> {
         }
         let created_key = match (&change.target, &desired) {
             (Target::Registry { path, .. }, Some(_)) => self.outermost_missing_key(path)?,
-            (_, None) => None,
+            _ => None,
         };
         let entry = Entry {
             id: EntryId(self.entries.last().map_or(0, |entry| entry.id.0) + 1),
@@ -326,7 +341,7 @@ impl<R: Registry> Engine<R> {
             // Nothing should have changed, but a key may have been created on
             // the way to the refused value.
             self.give_up(&entry, error.to_string())?;
-            return Err(error.into());
+            return Err(error);
         }
         let read_back = self.read(&entry.target)?;
         if !same(read_back.as_ref(), desired.as_ref()) {
@@ -375,7 +390,7 @@ impl<R: Registry> Engine<R> {
 
     /// Puts back what was there before `entry`, removing the keys it created
     /// once they hold nothing else.
-    fn restore(&mut self, entry: &Entry) -> Result<(), RegistryError> {
+    fn restore(&mut self, entry: &Entry) -> Result<(), EngineError> {
         self.write(&entry.target, raw(&entry.before.value).as_ref())?;
         let (Target::Registry { path, .. }, Some(created)) =
             (&entry.target, &entry.before.created_key)
@@ -409,19 +424,31 @@ impl<R: Registry> Engine<R> {
         Ok(None)
     }
 
-    fn read(&self, target: &Target) -> Result<Option<RawValue>, RegistryError> {
-        match target {
-            Target::Registry { path, name } => self.registry.read(path, name),
-        }
+    fn read(&self, target: &Target) -> Result<Option<RawValue>, EngineError> {
+        read(&self.registry, target)
     }
 
-    fn write(&mut self, target: &Target, value: Option<&RawValue>) -> Result<(), RegistryError> {
+    fn write(&mut self, target: &Target, value: Option<&RawValue>) -> Result<(), EngineError> {
         match (target, value) {
             (Target::Registry { path, name }, Some(value)) => {
-                self.registry.write(path, name, value)
+                self.registry.write(path, name, value)?
             }
-            (Target::Registry { path, name }, None) => self.registry.delete(path, name),
+            (Target::Registry { path, name }, None) => self.registry.delete(path, name)?,
+            (Target::Parameter { name }, value) => {
+                let on = match value.map(Value::from_raw) {
+                    Some(Value::Dword(0)) => false,
+                    Some(Value::Dword(1)) => true,
+                    value => {
+                        return Err(EngineError::NotAFlag {
+                            target: target.clone(),
+                            value,
+                        });
+                    }
+                };
+                self.registry.set(*name, on)?
+            }
         }
+        Ok(())
     }
 
     fn entry(&self, id: EntryId) -> Result<&Entry, EngineError> {
@@ -450,6 +477,18 @@ impl<R: Registry> Engine<R> {
         }
         Ok(())
     }
+}
+
+/// What `target` holds now. A system parameter reads as DWORD 1 when on and 0
+/// when off, so it compares and goes into the journal like a registry value.
+pub(crate) fn read(
+    system: &(impl Registry + Parameters),
+    target: &Target,
+) -> Result<Option<RawValue>, EngineError> {
+    Ok(match target {
+        Target::Registry { path, name } => system.read(path, name)?,
+        Target::Parameter { name } => Some(Value::Dword(system.get(*name)?.into()).to_raw()),
+    })
 }
 
 /// Replays the journal's events into entries.
@@ -801,6 +840,69 @@ mod tests {
             engine.apply("b", &[set("Shown", 2)]).unwrap();
 
             assert_eq!(engine.drift().unwrap(), vec![]);
+        }
+    }
+
+    mod parameters {
+        use platform::parameters::Parameter;
+
+        use super::*;
+        use crate::parameters::Parameters;
+
+        const MENU: Target = Target::Parameter {
+            name: Parameter::MenuAnimation,
+        };
+
+        fn turn(on: u32) -> Change {
+            Change {
+                target: MENU,
+                value: Some(Value::Dword(on)),
+            }
+        }
+
+        #[test]
+        fn turns_a_parameter_off_and_back_on() {
+            let setup = Setup::new();
+            let mut engine = setup.engine(FakeRegistry::default());
+            engine.apply("t", &[turn(0)]).unwrap();
+            let off = Parameters::get(engine.registry(), Parameter::MenuAnimation).unwrap();
+            engine.revert(EntryId(1), false).unwrap();
+
+            assert_eq!(
+                (
+                    off,
+                    Parameters::get(engine.registry(), Parameter::MenuAnimation).unwrap()
+                ),
+                (false, true)
+            );
+        }
+
+        #[test]
+        fn records_the_parameter_as_it_was() {
+            let setup = Setup::new();
+            let mut engine = setup.engine(FakeRegistry::default());
+            engine.apply("t", &[turn(0)]).unwrap();
+
+            assert_eq!(engine.entries()[0].before.value, Some(Value::Dword(1)));
+        }
+
+        #[test]
+        fn finds_a_parameter_turned_back_on() {
+            let setup = Setup::new();
+            let mut engine = setup.engine(FakeRegistry::default());
+            engine.apply("t", &[turn(0)]).unwrap();
+            engine.registry.set(Parameter::MenuAnimation, true).unwrap();
+
+            assert_eq!(engine.drift().unwrap().len(), 1);
+        }
+
+        #[test]
+        fn refuses_a_value_other_than_on_or_off() {
+            let setup = Setup::new();
+            let mut engine = setup.engine(FakeRegistry::default());
+            let error = engine.apply("t", &[turn(2)]).unwrap_err();
+
+            assert!(matches!(*error.cause, EngineError::NotAFlag { .. }));
         }
     }
 

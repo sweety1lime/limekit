@@ -5,12 +5,14 @@
 
 use std::collections::BTreeSet;
 
-use platform::registry::{RawValue, RegistryError};
+use platform::parameters::Parameter;
+use platform::registry::RawValue;
 use platform::system::WindowsVersion;
 use serde::{Deserialize, Deserializer, Serialize, de};
 
 use crate::compat::{Availability, Requirements};
-use crate::engine::{Change, Target};
+use crate::engine::{self, Change, EngineError, Target};
+use crate::parameters::Parameters;
 use crate::registry::Registry;
 use crate::value::Value;
 
@@ -35,6 +37,10 @@ pub struct Tweak {
     pub source: Option<String>,
     #[serde(default)]
     pub takes_effect: TakesEffect,
+    /// The `WM_SETTINGCHANGE` area Windows announces when its own settings
+    /// make this change, such as `ImmersiveColorSet`. LimeKit announces the
+    /// same after switching the tweak, so open windows pick it up.
+    pub notify: Option<String>,
     #[serde(default)]
     pub requires: Requirements,
     #[serde(rename = "change")]
@@ -70,16 +76,78 @@ pub enum TakesEffect {
     SignOut,
 }
 
+/// One value a tweak sets: a registry value under HKEY_CURRENT_USER, given by
+/// `path` and `name`, or a system parameter.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TweakChange {
     /// Key path under HKEY_CURRENT_USER.
-    pub path: String,
+    pub path: Option<String>,
     /// Value name; empty for the key's default value.
     #[serde(default)]
     pub name: String,
+    /// A system parameter instead of a registry value; its on and off are
+    /// DWORD 1 and 0.
+    pub parameter: Option<Parameter>,
     pub on: Setting,
     pub off: Setting,
+    /// What Windows goes by while the value is not there at all. A fresh
+    /// install often has no value until someone flips the switch in Settings.
+    pub missing: Option<Value>,
+}
+
+impl TweakChange {
+    pub fn target(&self) -> Target {
+        match (&self.parameter, &self.path) {
+            (Some(parameter), _) => Target::Parameter { name: *parameter },
+            (None, path) => Target::Registry {
+                path: path.clone().unwrap_or_default(),
+                name: self.name.clone(),
+            },
+        }
+    }
+
+    fn problems(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        let target = self.target();
+        match (&self.path, &self.parameter) {
+            (Some(path), None) => {
+                let upper = path.to_ascii_uppercase();
+                if path.is_empty()
+                    || upper.starts_with("HKEY")
+                    || upper.starts_with("HKCU")
+                    || path.starts_with('\\')
+                    || path.ends_with('\\')
+                    || path.contains(r"\\")
+                {
+                    problems.push(format!(
+                        "{path:?} should be a key path under HKEY_CURRENT_USER, without the hive"
+                    ));
+                }
+            }
+            (None, Some(_)) => {
+                let flag = |setting: &Setting| matches!(setting, Setting::Set(Value::Dword(0 | 1)));
+                if !flag(&self.on) || !flag(&self.off) {
+                    problems.push(format!("{target}: on and off should be DWORD 1 or 0"));
+                }
+                if !self.name.is_empty() || self.missing.is_some() {
+                    problems.push(format!(
+                        "{target}: a system parameter takes neither a name nor missing"
+                    ));
+                }
+            }
+            _ => problems.push("a change needs either a path or a parameter".into()),
+        }
+        if self.on == self.off {
+            problems.push(format!("{target}: on and off are the same"));
+        }
+        if self.missing.is_some() && (self.on == Setting::Delete || self.off == Setting::Delete) {
+            problems.push(format!(
+                "{target}: missing means nothing when on or off deletes the value"
+            ));
+        }
+        problems
+    }
 }
 
 /// A value to write, or `"delete"` in the catalog to remove it.
@@ -187,10 +255,7 @@ impl Tweak {
         self.changes
             .iter()
             .map(|change| Change {
-                target: Target::Registry {
-                    path: change.path.clone(),
-                    name: change.name.clone(),
-                },
+                target: change.target(),
                 value: if on { &change.on } else { &change.off }.value(),
             })
             .collect()
@@ -200,11 +265,12 @@ impl Tweak {
         self.requires.availability(version)
     }
 
-    pub fn state(&self, registry: &impl Registry) -> Result<TweakState, RegistryError> {
+    pub fn state(&self, system: &(impl Registry + Parameters)) -> Result<TweakState, EngineError> {
         let mut all_on = true;
         let mut all_off = true;
         for change in &self.changes {
-            let current = registry.read(&change.path, &change.name)?;
+            let current = engine::read(system, &change.target())?
+                .or_else(|| change.missing.as_ref().map(Value::to_raw));
             all_on &= change.on.matches(current.as_ref());
             all_off &= change.off.matches(current.as_ref());
         }
@@ -245,22 +311,7 @@ impl Tweak {
             problems.push("there is nothing to change".into());
         }
         for change in &self.changes {
-            let path = &change.path;
-            let upper = path.to_ascii_uppercase();
-            if path.is_empty()
-                || upper.starts_with("HKEY")
-                || upper.starts_with("HKCU")
-                || path.starts_with('\\')
-                || path.ends_with('\\')
-                || path.contains(r"\\")
-            {
-                problems.push(format!(
-                    "{path:?} should be a key path under HKEY_CURRENT_USER, without the hive"
-                ));
-            }
-            if change.on == change.off {
-                problems.push(format!("{path}\\{}: on and off are the same", change.name));
-            }
+            problems.extend(change.problems());
         }
         problems.extend(self.requires_problems());
         problems
@@ -323,8 +374,38 @@ mod tests {
         off = "delete"
     "#;
 
+    const PARAMETER: &str = r#"
+        [[tweak]]
+        id = "appearance.sample"
+        title.ru = "Пример"
+        title.en = "Sample"
+        description.ru = "Описание"
+        description.en = "Description"
+        provenance = "documented"
+        source = "https://learn.microsoft.com/"
+
+        [[tweak.change]]
+        parameter = "menu_animation"
+        on = { type = "dword", data = 0 }
+        off = { type = "dword", data = 1 }
+    "#;
+
     fn sample() -> Catalog {
         Catalog::parse(ONE).unwrap()
+    }
+
+    #[test]
+    fn reads_a_system_parameter() {
+        let catalog = Catalog::parse(PARAMETER).unwrap();
+        assert_eq!(
+            catalog.tweaks[0].changes(true),
+            vec![Change {
+                target: Target::Parameter {
+                    name: Parameter::MenuAnimation,
+                },
+                value: Some(Value::Dword(0)),
+            }]
+        );
     }
 
     #[test]
@@ -421,6 +502,35 @@ mod tests {
         }
 
         #[test]
+        fn a_change_with_both_a_path_and_a_parameter() {
+            let text = ONE.replace(
+                r#"name = "Shown""#,
+                r#"name = "Shown"
+                parameter = "menu_animation""#,
+            );
+            assert!(!problems_of(&text).is_empty());
+        }
+
+        #[test]
+        fn a_parameter_set_to_something_but_on_or_off() {
+            let text = PARAMETER.replace("data = 0", "data = 2");
+            assert_eq!(
+                problems_of(&text),
+                ["appearance.sample: SPI_SETMENUANIMATION: on and off should be DWORD 1 or 0"]
+            );
+        }
+
+        #[test]
+        fn missing_next_to_delete() {
+            let text = ONE.replace(
+                r#"off = "delete""#,
+                r#"off = "delete"
+                missing = { type = "dword", data = 0 }"#,
+            );
+            assert_eq!(problems_of(&text).len(), 1);
+        }
+
+        #[test]
         fn an_upside_down_build_range() {
             let text = format!("{ONE}\n[tweak.requires]\nmin_build = 26100\nbelow_build = 22000\n");
             assert_eq!(
@@ -444,6 +554,29 @@ mod tests {
         fn is_off_when_the_value_is_absent_as_off_asks() {
             assert_eq!(
                 sample().tweaks[0].state(&FakeRegistry::default()).unwrap(),
+                TweakState::Off
+            );
+        }
+
+        #[test]
+        fn takes_a_missing_value_as_what_windows_goes_by() {
+            let text = ONE.replace(
+                r#"off = "delete""#,
+                r#"off = { type = "dword", data = 0 }
+                missing = { type = "dword", data = 0 }"#,
+            );
+            let catalog = Catalog::parse(&text).unwrap();
+            assert_eq!(
+                catalog.tweaks[0].state(&FakeRegistry::default()).unwrap(),
+                TweakState::Off
+            );
+        }
+
+        #[test]
+        fn reads_a_system_parameter_that_is_on_as_off() {
+            let catalog = Catalog::parse(PARAMETER).unwrap();
+            assert_eq!(
+                catalog.tweaks[0].state(&FakeRegistry::default()).unwrap(),
                 TweakState::Off
             );
         }

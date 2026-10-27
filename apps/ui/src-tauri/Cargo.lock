@@ -2465,6 +2465,7 @@ version = "0.2.1"
 dependencies = [
  "dirs",
  "raw-window-handle",
+ "serde",
  "thiserror 2.0.18",
  "windows",
  "windows-registry",

@@ -8,6 +8,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
+use platform::parameters::Parameter;
 use serde::{Deserialize, Serialize};
 
 use crate::value::Value;
@@ -24,14 +25,16 @@ pub struct EntryId(pub u64);
 #[serde(transparent)]
 pub struct SessionId(pub u64);
 
-/// What a change touches. Only registry values so far; system parameters
-/// set through SystemParametersInfo will be a variant of their own.
+/// What a change touches.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Target {
     /// Value `name` of the key at `path` under HKEY_CURRENT_USER. An empty
     /// name is the key's default value.
     Registry { path: String, name: String },
+    /// A per-user system parameter set through SystemParametersInfo. Its
+    /// value is `{"type":"dword","data":1}` for on and 0 for off.
+    Parameter { name: Parameter },
 }
 
 impl fmt::Display for Target {
@@ -41,6 +44,7 @@ impl fmt::Display for Target {
                 write!(f, r"HKCU\{path} (default)")
             }
             Target::Registry { path, name } => write!(f, r"HKCU\{path}\{name}"),
+            Target::Parameter { name } => write!(f, "{name}"),
         }
     }
 }
@@ -332,5 +336,16 @@ mod tests {
             name: "Value".into(),
         };
         assert_eq!(target.to_string(), r"HKCU\Software\LimeKit\Value");
+    }
+
+    #[test]
+    fn a_system_parameter_is_written_by_name() {
+        let target = Target::Parameter {
+            name: Parameter::MenuAnimation,
+        };
+        assert_eq!(
+            serde_json::to_string(&target).unwrap(),
+            r#"{"kind":"parameter","name":"menu_animation"}"#
+        );
     }
 }

@@ -1,5 +1,5 @@
-//! The tweak engine: changes to the per-user registry that LimeKit can always
-//! undo.
+//! The tweak engine: changes to per-user settings, registry values and system
+//! parameters, that LimeKit can always undo.
 //!
 //! Every change goes through the journal first. Before touching a value the
 //! engine writes down what was there, including "nothing was there"; then it
@@ -12,6 +12,7 @@ mod catalog;
 mod compat;
 mod engine;
 mod journal;
+mod parameters;
 mod reg_file;
 mod registry;
 mod value;
@@ -25,6 +26,8 @@ pub use engine::{
     SessionId, State, Target,
 };
 pub use journal::JournalError;
+pub use parameters::Parameters;
+pub use platform::parameters::Parameter;
 pub use reg_file::{undo_reg_file, undo_reg_text};
 pub use registry::{CurrentUser, Registry};
 pub use value::Value;

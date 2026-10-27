@@ -12,7 +12,7 @@ use platform::system::WindowsVersion;
 use serde::Serialize;
 use tweaks::{
     Availability, Catalog, CurrentUser, Edition, Engine, EngineError, EntryId, Outcome, Provenance,
-    RevertOutcome, State, TakesEffect, Text, Tweak, TweakState, Value,
+    RevertOutcome, State, TakesEffect, Target, Text, Tweak, TweakState, Value,
 };
 
 /// The engine, opened on first use.
@@ -206,6 +206,8 @@ pub async fn tweaks_view(
 #[derive(Serialize)]
 pub struct PreviewLine {
     target: String,
+    /// A system parameter, whose values are on (1) and off (0).
+    parameter: bool,
     current: Option<Value>,
     next: Option<Value>,
 }
@@ -238,13 +240,10 @@ pub async fn tweak_preview(
         lines
             .into_iter()
             .map(|(target, next)| {
-                let tweaks::Target::Registry { path, name } = &target;
-                let current = platform::registry::read_value(path, name)
-                    .map_err(|error| error.to_string())?
-                    .map(|raw| Value::from_raw(&raw));
                 Ok(PreviewLine {
+                    parameter: matches!(target, Target::Parameter { .. }),
+                    current: engine.current(&target).map_err(|error| error.to_string())?,
                     target: target.to_string(),
-                    current,
                     next,
                 })
             })
@@ -288,7 +287,28 @@ pub async fn tweak_switch(
     {
         return Ok(SwitchOutcome::NotAvailable);
     }
-    with_engine(&state, |engine| switch(engine, tweak, on))
+    let outcome = with_engine(&state, |engine| switch(engine, tweak, on))?;
+    if matches!(
+        outcome,
+        SwitchOutcome::Done | SwitchOutcome::ChangedSince { .. }
+    ) {
+        announce([tweak]);
+    }
+    Ok(outcome)
+}
+
+/// Tells open windows about what `tweaks` changed, once per area.
+fn announce<'a>(tweaks: impl IntoIterator<Item = &'a Tweak>) {
+    let mut done: Vec<&str> = Vec::new();
+    for area in tweaks
+        .into_iter()
+        .filter_map(|tweak| tweak.notify.as_deref())
+    {
+        if !done.contains(&area) {
+            platform::shell::announce_setting_change(area);
+            done.push(area);
+        }
+    }
 }
 
 /// On writes the tweak's values. Off undoes through the journal whatever
@@ -344,30 +364,58 @@ pub struct UndoAll {
     pub reverted: usize,
     /// Values changed after LimeKit set them, left alone.
     pub changed_since: Vec<String>,
+    /// Something undone shows only once Explorer restarts.
+    pub restart_explorer: bool,
 }
 
 fn undo_all(engine: &mut Engine<CurrentUser>) -> Result<UndoAll, String> {
     let mut summary = UndoAll::default();
+    let mut undone: Vec<String> = Vec::new();
     for (id, outcome) in engine
         .revert_all(false)
         .map_err(|error| error.to_string())?
     {
+        let Some(entry) = engine.entries().iter().find(|entry| entry.id == id) else {
+            continue;
+        };
         match outcome {
-            RevertOutcome::Reverted => summary.reverted += 1,
-            RevertOutcome::ChangedSince { .. } => {
-                if let Some(entry) = engine.entries().iter().find(|entry| entry.id == id) {
-                    summary.changed_since.push(entry.target.to_string());
+            RevertOutcome::Reverted => {
+                summary.reverted += 1;
+                if !undone.contains(&entry.tweak) {
+                    undone.push(entry.tweak.clone());
                 }
+            }
+            RevertOutcome::ChangedSince { .. } => {
+                summary.changed_since.push(entry.target.to_string());
             }
             RevertOutcome::NotApplied => {}
         }
     }
+    let catalog = catalog()?;
+    let undone: Vec<&Tweak> = catalog
+        .tweaks
+        .iter()
+        .filter(|tweak| undone.contains(&tweak.id))
+        .collect();
+    summary.restart_explorer = undone
+        .iter()
+        .any(|tweak| tweak.takes_effect == TakesEffect::ExplorerRestart);
+    announce(undone);
     Ok(summary)
 }
 
 #[tauri::command]
 pub async fn tweaks_undo_all(state: tauri::State<'_, TweakEngine>) -> Result<UndoAll, String> {
     with_engine(&state, undo_all)
+}
+
+/// Restarts Explorer for the tweaks it reads only when it starts. Open folder
+/// windows close; LimeKit's wallpapers find the new desktop by themselves.
+#[tauri::command]
+pub async fn restart_explorer() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(platform::shell::restart_explorer)
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 /// Undoes every tweak for `LimeKit.exe --cleanup`. Without a journal there is
