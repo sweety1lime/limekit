@@ -23,6 +23,13 @@ const strings = {
     en: "Windows or another program changed what LimeKit had set: {list}.",
   },
 
+  "category.explorer": { ru: "Проводник", en: "File Explorer" },
+  "category.taskbar": { ru: "Панель задач", en: "Taskbar" },
+  "category.start": { ru: "Меню «Пуск»", en: "Start" },
+  "category.suggestions": { ru: "Советы и реклама Windows", en: "Windows tips and ads" },
+  "category.privacy": { ru: "Конфиденциальность", en: "Privacy" },
+  "category.appearance": { ru: "Оформление", en: "Appearance" },
+
   "provenance.documented": { ru: "документировано Microsoft", en: "documented by Microsoft" },
   "provenance.observed": { ru: "так пишет сама Windows", en: "what Windows itself writes" },
   "provenance.unsupported": { ru: "неподдерживаемый приём", en: "unsupported trick" },

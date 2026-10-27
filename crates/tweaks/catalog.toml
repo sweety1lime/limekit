@@ -3,6 +3,7 @@
 # `cargo test -p tweaks` checks the rules below (src/catalog.rs).
 #
 # id           category.name; the journal refers to tweaks by it, so it stays.
+#              The window groups tweaks by category in catalog order.
 # provenance   documented   Microsoft documents the value; cite it in source.
 #              observed     undocumented, but what Windows' own settings write.
 #              unsupported  a trick Windows does not support and may drop.
@@ -24,6 +25,8 @@
 # and off there and seen it work. Until then LimeKit says it is unverified,
 # and takes_effect is the cautious guess.
 
+# --- File Explorer ------------------------------------------------------------
+
 [[tweak]]
 id = "explorer.file_extensions"
 title.ru = "Показывать расширения файлов"
@@ -38,6 +41,7 @@ path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
 name = "HideFileExt"
 on = { type = "dword", data = 0 }
 off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
 
 [[tweak]]
 id = "explorer.hidden_files"
@@ -53,6 +57,7 @@ path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
 name = "Hidden"
 on = { type = "dword", data = 1 }
 off = { type = "dword", data = 2 }
+missing = { type = "dword", data = 2 }
 
 [[tweak]]
 id = "explorer.open_to_this_pc"
@@ -68,3 +73,331 @@ path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
 name = "LaunchTo"
 on = { type = "dword", data = 1 }
 off = "delete"
+
+# --- Taskbar ------------------------------------------------------------------
+
+[[tweak]]
+id = "taskbar.hide_task_view"
+title.ru = "Убрать кнопку «Представление задач»"
+title.en = "Hide the Task View button"
+description.ru = "С панели задач пропадает кнопка, которая показывает открытые окна и виртуальные рабочие столы. Сами рабочие столы и Win+Tab работают как прежде."
+description.en = "The taskbar loses the button that shows open windows and virtual desktops. The desktops themselves and Win+Tab keep working."
+provenance = "observed"
+takes_effect = "explorer_restart"
+notify = "TraySettings"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "ShowTaskViewButton"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "taskbar.align_left"
+title.ru = "Значки панели задач слева"
+title.en = "Taskbar icons on the left"
+description.ru = "Кнопка «Пуск» и значки приложений переезжают к левому краю, как в Windows 10. По умолчанию Windows 11 ставит их по центру."
+description.en = "Start and the app icons move to the left edge, as in Windows 10. Windows 11 centers them by default."
+provenance = "observed"
+takes_effect = "explorer_restart"
+notify = "TraySettings"
+
+[tweak.requires]
+min_build = 22000
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "TaskbarAl"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "taskbar.search_icon"
+title.ru = "Значок поиска вместо поля"
+title.en = "Search icon instead of the search box"
+description.ru = "Поле поиска на панели задач сжимается до значка и освобождает место для приложений. Поиск открывается щелчком по значку или клавишей Win."
+description.en = "The taskbar search box shrinks to an icon and leaves room for apps. Search still opens with a click on the icon or the Windows key."
+provenance = "observed"
+takes_effect = "explorer_restart"
+notify = "TraySettings"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Search'
+name = "SearchboxTaskbarMode"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 2 }
+
+# --- Start --------------------------------------------------------------------
+
+[[tweak]]
+id = "start.hide_recommendations"
+title.ru = "Без советов и новых приложений в «Пуске»"
+title.en = "No tips and app promotions in Start"
+description.ru = "Из раздела «Рекомендуем» пропадают советы, ярлыки и предложения новых приложений. Недавние файлы там остаются, у них свой переключатель в Параметрах."
+description.en = "The Recommended section stops showing tips, shortcuts and new apps. Recent files stay; Settings has a separate switch for them."
+provenance = "observed"
+takes_effect = "explorer_restart"
+
+[tweak.requires]
+min_build = 22621
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "Start_IrisRecommendations"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+# --- Windows tips and ads -----------------------------------------------------
+
+[[tweak]]
+id = "suggestions.start_menu"
+title.ru = "Без предложений приложений в «Пуске»"
+title.en = "No app suggestions in Start"
+description.ru = "В списке приложений «Пуска» перестают появляться предложения установить что-нибудь из Microsoft Store."
+description.en = "The Start app list stops suggesting things to install from the Microsoft Store."
+provenance = "observed"
+
+[tweak.requires]
+below_build = 22000
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-338388Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "suggestions.tips"
+title.ru = "Без советов и подсказок Windows"
+title.en = "No Windows tips and suggestions"
+description.ru = "Windows перестаёт присылать уведомления с советами, как ей пользоваться, и с предложениями сервисов Microsoft."
+description.en = "Windows stops sending notifications with tips on using it and offers for Microsoft services."
+provenance = "observed"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-338389Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "suggestions.settings_app"
+title.ru = "Без рекомендаций в Параметрах"
+title.en = "No suggested content in Settings"
+description.ru = "Из приложения «Параметры» пропадают блоки с советами и предложениями сервисов Microsoft."
+description.en = "The Settings app stops showing boxes with tips and offers for Microsoft services."
+provenance = "observed"
+
+[tweak.requires]
+min_build = 17763
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-338393Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-353694Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-353696Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "suggestions.welcome"
+title.ru = "Без экрана приветствия после обновлений"
+title.en = "No welcome screen after updates"
+description.ru = "После крупных обновлений Windows не открывает на весь экран рассказ о новых функциях и предложения Microsoft."
+description.en = "After major updates Windows no longer opens a full-screen tour of new features and Microsoft offers."
+provenance = "observed"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-310093Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "suggestions.finish_setup"
+title.ru = "Без напоминаний «Давайте завершим настройку»"
+title.en = "No “Let's finish setting up” reminders"
+description.ru = "Windows перестаёт после входа предлагать на весь экран учётную запись Microsoft, OneDrive и Microsoft 365."
+description.en = "Windows stops offering a Microsoft account, OneDrive and Microsoft 365 on a full screen after sign-in."
+provenance = "observed"
+
+[tweak.requires]
+min_build = 19041
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement'
+name = "ScoobeSystemSettingEnabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "suggestions.lock_screen"
+title.ru = "Без советов на экране блокировки"
+title.en = "No tips on the lock screen"
+description.ru = "На экране блокировки поверх картинки перестают появляться факты, советы и реклама. Касается фона «Фото» и «Windows: интересное»."
+description.en = "The lock screen stops showing facts, tips and ads over the picture. Applies to the Picture and Windows spotlight backgrounds."
+provenance = "observed"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "RotatingLockScreenOverlayEnabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+name = "SubscribedContent-338387Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+# --- Privacy ------------------------------------------------------------------
+
+[[tweak]]
+id = "privacy.advertising_id"
+title.ru = "Отключить рекламный идентификатор"
+title.en = "Turn off the advertising ID"
+description.ru = "Приложения больше не получают идентификатор, по которому подбирают рекламу под ваши интересы. Рекламы меньше не станет, но она перестанет быть персональной."
+description.en = "Apps no longer get the ID they use to match ads to your interests. You will not see fewer ads, but they will no longer be personalized."
+provenance = "observed"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo'
+name = "Enabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "privacy.app_launch_tracking"
+title.ru = "Не отслеживать запуск приложений"
+title.en = "Don't track app launches"
+description.ru = "Windows перестаёт запоминать, какие приложения вы запускаете, чтобы подстраивать под это «Пуск» и поиск. Список часто используемых приложений в «Пуске» пропадёт."
+description.en = "Windows stops recording which apps you launch to tailor Start and search to it. The most used apps list in Start goes away."
+provenance = "observed"
+takes_effect = "explorer_restart"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "Start_TrackProgs"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+# --- Appearance ---------------------------------------------------------------
+
+[[tweak]]
+id = "appearance.dark_apps"
+title.ru = "Тёмная тема приложений"
+title.en = "Dark mode for apps"
+description.ru = "Параметры, Проводник и другие приложения, которые следуют настройке Windows, переходят на тёмное оформление."
+description.en = "Settings, File Explorer and other apps that follow the Windows setting switch to a dark look."
+provenance = "observed"
+notify = "ImmersiveColorSet"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+name = "AppsUseLightTheme"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "appearance.dark_system"
+title.ru = "Тёмные панель задач и «Пуск»"
+title.en = "Dark taskbar and Start"
+description.ru = "Панель задач, меню «Пуск» и центр уведомлений становятся тёмными. В Windows 10 они тёмные по умолчанию, поэтому твик только для Windows 11."
+description.en = "The taskbar, Start and the notification center turn dark. Windows 10 has them dark by default, so this tweak is for Windows 11 only."
+provenance = "observed"
+notify = "ImmersiveColorSet"
+
+[tweak.requires]
+min_build = 22000
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+name = "SystemUsesLightTheme"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "appearance.no_transparency"
+title.ru = "Без прозрачности"
+title.en = "No transparency"
+description.ru = "Панель задач, «Пуск» и окна перестают просвечивать. Текст на них читается легче, а слабой видеокарте становится чуть проще."
+description.en = "The taskbar, Start and windows stop being see-through. Text on them is easier to read, and a weak graphics card gets a little relief."
+provenance = "observed"
+notify = "ImmersiveColorSet"
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+name = "EnableTransparency"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "appearance.no_animations"
+title.ru = "Без анимации окон и меню"
+title.en = "No window and menu animations"
+description.ru = "Окна, меню и подсказки появляются сразу, без плавного раскрытия и затухания. Это те же галочки, что в «Параметрах быстродействия» Windows, кроме анимации панели задач."
+description.en = "Windows, menus and tooltips appear at once, without sliding or fading. These are the same boxes as in Windows' Performance Options, except for taskbar animations."
+provenance = "documented"
+source = "https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-systemparametersinfow"
+
+[[tweak.change]]
+parameter = "client_area_animation"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak.change]]
+parameter = "minimize_animation"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak.change]]
+parameter = "menu_animation"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak.change]]
+parameter = "tooltip_animation"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak.change]]
+parameter = "combo_box_animation"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak.change]]
+parameter = "list_box_smooth_scrolling"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+
+[[tweak.change]]
+parameter = "selection_fade"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }

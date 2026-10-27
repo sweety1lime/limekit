@@ -1509,6 +1509,10 @@ body.dragging .dropzone {
   font-size: 13px;
 }
 
+.tweak-category {
+  margin: 12px 0 0;
+}
+
 .tweak-text {
   min-width: 0;
 }

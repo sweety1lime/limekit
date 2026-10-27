@@ -12,30 +12,43 @@
   set by hand comes back; a tweak LimeKit did not turn on gets the Windows
   default. "Вернуть всё" undoes every change, and the undo can be saved as a
   .reg file that works without LimeKit. Values changed after LimeKit set them
-  are left alone and named. It starts with three File Explorer tweaks, none of
-  them checked on any build yet.
+  are left alone and named. There are 19 tweaks in six groups: File Explorer,
+  the taskbar, Start, Windows tips and ads, privacy, and appearance, including
+  dark mode and turning off window and menu animations. 16 of them apply to
+  Windows 10; the rest are for Windows 11 and say so.
+- After a tweak File Explorer reads only when it starts, the screen offers
+  "Перезапустить Проводник". It goes through the Restart Manager, the way
+  installers restart Explorer, and starts `explorer.exe` itself if the taskbar
+  has not come back in ten seconds.
 - "Убрать LimeKit из системы" undoes the tweak changes first.
 
 ### For developers
 
 - `crates/tweaks`: the engine the tweaks run on.
-  Every change is written to a JSON Lines journal before the registry is
-  touched, read back after, and a set of changes takes effect whole or not at
+  Every change, to an HKCU registry value or to a system parameter set through
+  `SystemParametersInfo`, is written to a JSON Lines journal before it is
+  made, read back after, and a set of changes takes effect whole or not at
   all. Changes can be undone one by one, per set or all at once, without
   overwriting a value something else has changed since; the undo exports as a
-  .reg file that works without LimeKit. How it works and what it does not
-  promise: `docs/research/tweaks-journal.md`.
+  .reg file that works without LimeKit (system parameters excepted, and the
+  file says so). How it works and what it does not promise:
+  `docs/research/tweaks-journal.md`.
 - The tweak catalog, `crates/tweaks/catalog.toml`: every tweak as data, with
   Russian and English text, a provenance label (documented, observed,
-  unsupported), its on and off values, and the builds, update revisions and
-  editions it is for. LimeKit reads the build, UBR and `EditionID` and tells
-  apart verified, unverified, built into Windows, wrong version and wrong
-  edition. Tests check the catalog's data, so a bad entry fails CI. Three
-  File Explorer tweaks are in it to start with, none verified yet:
-  `docs/research/tweaks-catalog.md`.
+  unsupported), its on and off values, what Windows goes by while a value is
+  missing, the `WM_SETTINGCHANGE` area to announce after a switch, and the
+  builds, update revisions and editions it is for. LimeKit reads the build,
+  UBR and `EditionID` and tells apart verified, unverified, built into
+  Windows, wrong version and wrong edition. Tests check the catalog's data,
+  so a bad entry fails CI: `docs/research/tweaks-catalog.md`. How to verify a
+  tweak on a build: `docs/testing/manual-checks.md`.
 - `platform::registry`: HKCU values as their type and bytes exactly as
   stored, with a missing value told apart from an empty one and access denied
   apart from other errors.
+- `platform::parameters`: seven documented animation flags of
+  `SystemParametersInfo`, read and set for the current user.
+- `platform::shell`: announcing a changed setting to open windows, and
+  restarting Explorer through the Restart Manager.
 - The fetch scripts retry timeouts and server errors.
 - The full license texts (LGPL-2.1, LGPL-3.0, Apache 2.0) are in `licenses/`
   instead of being downloaded from gnu.org at every build: it kept failing to

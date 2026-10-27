@@ -707,6 +707,16 @@ const EFFECT_TEXT: Record<TweakView["takes_effect"], Key | null> = {
   sign_out: "effect.sign_out",
 };
 
+// Tweak ids start with their category.
+const CATEGORY_TEXT: Record<string, Key> = {
+  explorer: "category.explorer",
+  taskbar: "category.taskbar",
+  start: "category.start",
+  suggestions: "category.suggestions",
+  privacy: "category.privacy",
+  appearance: "category.appearance",
+};
+
 const EDITION_NAMES: Record<string, string> = {
   home: "Home",
   pro: "Pro",
@@ -823,7 +833,16 @@ function buildTweaks(): HTMLElement {
       );
     }
     if (view.tweaks.length === 0) list.append(h("div", { class: "grid-empty" }, t("tweaks.empty")));
-    for (const tweak of view.tweaks) list.append(renderTweak(tweak));
+    let category = "";
+    for (const tweak of view.tweaks) {
+      const next = tweak.id.split(".")[0];
+      if (next !== category) {
+        category = next;
+        const key = CATEGORY_TEXT[category];
+        list.append(h("div", { class: "section-label tweak-category" }, key ? t(key) : category));
+      }
+      list.append(renderTweak(tweak));
+    }
     body.append(list);
   }
   return h("div", { class: "gallery" }, head, body);
