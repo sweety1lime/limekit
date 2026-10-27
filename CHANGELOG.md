@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The background player shows up in Task Manager and in the file's
+  Properties as "LimeKit wallpaper player" by 2fame. It used to be "renderer"
+  with no publisher, in both `renderer.exe` and `limekit-daemon.exe`.
+
 ## 0.3.0 — tweaks you can undo, and web wallpapers that show
 
 LimeKit gets its second module: 19 Windows tweaks, each written to a journal
