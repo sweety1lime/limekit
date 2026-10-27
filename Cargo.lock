@@ -1041,7 +1041,7 @@ dependencies = [
 
 [[package]]
 name = "ipc"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "interprocess",
  "serde",
@@ -1218,7 +1218,7 @@ dependencies = [
 
 [[package]]
 name = "mpv"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "libloading",
  "thiserror 2.0.18",
@@ -1518,7 +1518,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "platform"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "dirs",
  "raw-window-handle",
@@ -1663,7 +1663,7 @@ dependencies = [
 
 [[package]]
 name = "renderer"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2187,7 +2187,7 @@ checksum = "756daf9b1013ebe47a8776667b466417e2d4c5679d441c26230efd9ef78692db"
 
 [[package]]
 name = "tweaks"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "platform",
  "serde",
@@ -2639,7 +2639,7 @@ dependencies = [
 
 [[package]]
 name = "wpk"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",

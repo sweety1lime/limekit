@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — tweaks you can undo, and web wallpapers that show
+
+LimeKit gets its second module: 19 Windows tweaks, each written to a journal
+before it changes anything and undone exactly, the 16 for Windows 10 checked
+on 22H2. Testing the release on a laptop also turned up web wallpapers that
+had never shown their page and video wallpapers lost after an Explorer
+restart; both are fixed.
 
 ### Added
 
