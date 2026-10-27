@@ -275,6 +275,7 @@ pub fn run(endpoint: Option<&str>, state_path: Option<&Path>) -> anyhow::Result<
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
+        state.follow_rebuilt_desktop();
         state.tick_playlists(Instant::now());
     }
     // Shutdown intentionally leaves the state file alone: these wallpapers
@@ -411,6 +412,9 @@ enum SessionKind {
 
 struct Session {
     surface: platform::SurfaceHandle,
+    /// The surface's native window when this session started drawing into
+    /// it. The host replaces the window when Explorer rebuilds the desktop.
+    window: u64,
     kind: SessionKind,
     path: PathBuf,
     quality: ipc::Quality,
@@ -1397,10 +1401,12 @@ impl DaemonState {
                 .host
                 .create_web_surface(monitor, root, entry)
                 .map_err(|error| (ipc::ErrorCode::PlaybackFailed, error.to_string()))?;
+            let window = self.host.surface_native_handle(surface).unwrap_or(0);
             self.sessions.insert(
                 monitor,
                 Session {
                     surface,
+                    window,
                     kind: SessionKind::Web,
                     path: path.clone(),
                     quality,
@@ -1461,6 +1467,7 @@ impl DaemonState {
                 monitor,
                 Session {
                     surface,
+                    window: wid,
                     kind: SessionKind::Mpv {
                         player: started.player,
                         width: started.width,
@@ -1488,6 +1495,65 @@ impl DaemonState {
     /// Tears a session down: an mpv player must stop rendering into the
     /// surface window before the window is destroyed; a web surface's webview
     /// is dropped by destroy_surface.
+    /// An Explorer restart takes the desktop windows the surfaces hang on with
+    /// it, and the host gives each surface a new window. mpv would go on
+    /// drawing into the old one, so it gets a new player on the new window. A
+    /// web page is rebuilt by the host itself. Both come back unpaused, so the
+    /// pause rules run again afterwards.
+    fn follow_rebuilt_desktop(&mut self) {
+        let rebuilt: Vec<(ipc::MonitorId, u64)> = self
+            .sessions
+            .iter()
+            .filter_map(|(&monitor, session)| {
+                let window = self.host.surface_native_handle(session.surface).ok()?;
+                (window != session.window).then_some((monitor, window))
+            })
+            .collect();
+        if rebuilt.is_empty() {
+            return;
+        }
+        let eco = self.battery_eco_active;
+        for (monitor, window) in rebuilt {
+            let api = self.api.clone();
+            let Some(session) = self.sessions.get_mut(&monitor) else {
+                continue;
+            };
+            session.window = window;
+            session.effective_paused = false;
+            let (SessionKind::Mpv { .. }, Some(api)) = (&session.kind, api) else {
+                println!("monitor {monitor}: desktop rebuilt, web wallpaper reloaded");
+                continue;
+            };
+            let (quality, anime4k) = if eco {
+                (playback::Quality::Eco, false)
+            } else {
+                (session.quality.into(), session.anime4k)
+            };
+            match playback::start_player(
+                api,
+                window,
+                &session.path,
+                quality,
+                session.volume,
+                anime4k,
+                &session.monitor,
+            ) {
+                Ok(started) => {
+                    session.kind = SessionKind::Mpv {
+                        player: started.player,
+                        width: started.width,
+                        height: started.height,
+                    };
+                    println!("monitor {monitor}: desktop rebuilt, playback restarted");
+                }
+                Err(error) => {
+                    eprintln!("monitor {monitor}: desktop rebuilt, playback lost: {error:#}");
+                }
+            }
+        }
+        self.apply_politeness();
+    }
+
     fn drop_session(&mut self, session: Session) {
         let Session { kind, surface, .. } = session;
         drop(kind);

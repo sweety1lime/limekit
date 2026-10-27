@@ -26,6 +26,17 @@
 
 ### Fixed
 
+- **Web wallpapers showed nothing.** Since 0.1 the page never loaded: wry
+  serves `wallpaper://` as `http://wallpaper.localhost/` on Windows, and the
+  rule that keeps a page on its own origin only allowed `wallpaper://`, so it
+  turned the page itself away. The desktop got an empty dark surface. The
+  rule now allows exactly the address wry uses, and a test pins it.
+- **Video wallpapers went black after Explorer restarted.** The surface came
+  back as a new window while mpv went on drawing into the old one. The daemon
+  now notices the new window and starts the player on it.
+- **The daemon could crash while Explorer restarted.** A request that reached
+  the wallpaper host while it was rebuilding the desktop hit state already in
+  use and aborted the process. Such a request now gets an error instead.
 - The window opened taller than the screen of a 1080p laptop at 150% scale,
   with its top, and the buttons in it, under a taskbar at the top of the
   screen. It now fits the screen it opens on and starts centered there.

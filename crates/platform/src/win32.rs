@@ -52,6 +52,9 @@ const WM_APP_REQUEST: u32 = WM_APP + 1;
 /// path: building a WebView2 runs a nested message pump, which fails while the
 /// host thread sits in the in-send-message state of a cross-thread send.
 const WM_APP_CREATE_WEB: u32 = WM_APP + 2;
+/// A shutdown request that arrived while the worker was busy, queued to run
+/// once it is free.
+const WM_APP_SHUTDOWN: u32 = WM_APP + 3;
 const WATCHDOG_TIMER_ID: usize = 1;
 const WATCHDOG_INTERVAL_MS: u32 = 1000;
 const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(2);
@@ -432,7 +435,7 @@ unsafe extern "system" fn control_proc(
             // The sender blocks in SendMessageW until we return, so the
             // pointer stays valid for the whole call.
             let request = unsafe { &mut *(lparam.0 as *mut Request) };
-            handle_request(request);
+            handle_request(window, request);
             LRESULT(0)
         }
         WM_APP_CREATE_WEB => {
@@ -448,6 +451,10 @@ unsafe extern "system" fn control_proc(
                 None => Err(no_response()),
             });
             let _ = request.reply.send(result);
+            LRESULT(0)
+        }
+        WM_APP_SHUTDOWN => {
+            handle_request(window, &mut Request::Shutdown);
             LRESULT(0)
         }
         WM_TIMER if wparam.0 == WATCHDOG_TIMER_ID => {
@@ -485,8 +492,21 @@ unsafe extern "system" fn surface_proc(
     }
 }
 
-fn handle_request(request: &mut Request) {
-    WORKER.with_borrow_mut(|slot| {
+fn handle_request(control: HWND, request: &mut Request) {
+    WORKER.with(|cell| {
+        // A request can arrive while the worker is busy: destroying a surface
+        // waits for windows of other threads (mpv draws in its own), and
+        // Windows delivers messages sent to this thread in the meantime. The
+        // sender keeps the request's "did not answer" error and can ask again
+        // later. A shutdown must not be lost, so it is queued.
+        let Ok(mut slot) = cell.try_borrow_mut() else {
+            if matches!(request, Request::Shutdown) {
+                unsafe {
+                    let _ = PostMessageW(Some(control), WM_APP_SHUTDOWN, WPARAM(0), LPARAM(0));
+                }
+            }
+            return;
+        };
         let Some(worker) = slot.as_mut() else {
             return;
         };

@@ -410,7 +410,8 @@ pub async fn tweaks_undo_all(state: tauri::State<'_, TweakEngine>) -> Result<Und
 }
 
 /// Restarts Explorer for the tweaks it reads only when it starts. The Restart
-/// Manager reopens its folder windows.
+/// Manager reopens its folder windows; the daemon puts the wallpapers back on
+/// the new desktop.
 #[tauri::command]
 pub async fn restart_explorer() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(platform::shell::restart_explorer)
