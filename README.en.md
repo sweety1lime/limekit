@@ -9,8 +9,8 @@ well and I use them every day, but somewhere along the way I realised the pictur
 on my desktop wasn't the only thing I wanted to change about Windows. So LimeWall
 became LimeKit: same engine underneath, but now it's a kit that will grow.
 
-Wallpapers are the first module and the only finished one. Everything else is in
-the plans below, and I've written them honestly — what's done is done, what
+Two modules are finished: live wallpapers and system tweaks. Everything else is
+in the plans below, and I've written them honestly — what's done is done, what
 isn't, isn't.
 
 <!-- GIF GOES HERE: live wallpaper behind the icons with the app window beside
@@ -38,13 +38,34 @@ and glTF 3D models.
   someone else's with a double-click. Older `.wpk` files from 0.1 still open.
 - A community catalog inside the app; downloads are checksum-verified.
 
+**System tweaks**: 19 switches for File Explorer, the taskbar, Start,
+appearance, and Windows tips and ads. File extensions, taskbar icons on the
+left, dark mode, no animations, no Microsoft Store suggestions, and so on.
+
+- Before anything changes, the window shows each value as it is and as it will
+  be.
+- Every change is written to a journal first, then made and read back.
+  Turning a tweak off puts back what was there before LimeKit, even a setting
+  you had made by hand. "Вернуть всё" (undo everything) reverts it all at once,
+  and the undo can be saved as a `.reg` file that works without LimeKit.
+- If Windows or another program changes a value after LimeKit set it, the undo
+  leaves it alone and the window tells you what changed.
+- Each tweak shows where its value comes from (Microsoft's documentation, or
+  what Windows' own Settings write), whether it fits your build and edition,
+  and whether anyone has checked it on that build. All 16 tweaks for Windows
+  10 are checked on 22H2 (19045); the three for Windows 11 only are not yet.
+- Only your account's settings, and no admin rights. That is why there are no
+  group policy tweaks: only an administrator can write those.
+
+The interface is in Russian for now; tweak texts already have English.
+
 ## Where this is going
 
 In order, not by importance:
 
-1. **System tweaks** — toggles for the taskbar, File Explorer, appearance and
-   privacy. Each one shows exactly what it will change before it does, and
-   reverts in one click. The whole change-journal design exists for this.
+1. **More tweaks** — around thirty by the next release: taskbar grouping, File
+   Explorer without Home and Gallery, lock screen settings. Every new tweak
+   gets the same hands-on check on a real Windows.
 2. **Themes** — cursors, sounds, accent colours, folder icons. Build a set,
    share it as a file, put everything back the way it was.
 3. **Widgets and a dock** — a clock, a system monitor, notes on the desktop; a
@@ -157,8 +178,8 @@ I rejected and why. They're in Russian:
 - [Community catalog](docs/research/catalog.md) — moderation, checksums,
   revocation.
 - [Politeness](docs/research/politeness.md) — when and how wallpapers pause.
-- [Tweak journal](docs/research/tweaks-journal.md) — how the upcoming tweaks
-  write down every change before making it, and how it is undone.
+- [Tweak journal](docs/research/tweaks-journal.md) — how tweaks write down
+  every change before making it, and how it is undone.
 - [Tweak catalog](docs/research/tweaks-catalog.md) — tweaks as data, three
   provenance labels, and how LimeKit decides a tweak fits this Windows.
 
@@ -190,6 +211,23 @@ a separate `vulkan` folder, and it's used only when System32 has none. Khronos
 advises against replacing the system loader, since an old copy may not get
 along with newer drivers. The price: 1.7 MB more in the program folder, and
 keeping that copy up to date is on me.
+
+**A journal before each change instead of "defaults".** Many tweakers undo by
+writing preset Windows defaults or by asking you to run a `.reg` file by hand,
+and a setting you once made yourself is lost. LimeKit writes down each value
+before touching it, including "there was no value", and undoes them one by
+one, checking that nobody changed the value since. So undo brings back your
+old setting and doesn't wipe one you made after the tweak. The price: a tweak
+that writes anything around the journal is impossible, and settings that
+don't live in a registry value of their own, like animations, needed their
+own support in the engine.
+
+**An honest "not checked" instead of a long list.** Each tweak in the catalog
+lists the Windows builds where someone turned it on and off and saw it work.
+Until your build is on that list, the window says so and asks again before
+turning the tweak on. The price: the catalog grows slower, since every tweak
+needs a check by hand, and I have no Windows 11 machine, so checks there go
+through testers.
 
 **Containment instead of detection.** I don't try to scan wallpapers for
 malware; a determined author would get past any scanner. Instead a web wallpaper

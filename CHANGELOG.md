@@ -14,13 +14,21 @@
   .reg file that works without LimeKit. Values changed after LimeKit set them
   are left alone and named. There are 19 tweaks in six groups: File Explorer,
   the taskbar, Start, Windows tips and ads, privacy, and appearance, including
-  dark mode and turning off window and menu animations. 16 of them apply to
-  Windows 10; the rest are for Windows 11 and say so.
+  dark mode and turning off window and menu animations. The 16 that apply to
+  Windows 10 are checked on 22H2 (19045); the three for Windows 11 only are
+  not checked yet and say so.
 - After a tweak File Explorer reads only when it starts, the screen offers
   "Перезапустить Проводник". It goes through the Restart Manager, the way
-  installers restart Explorer, and starts `explorer.exe` itself if the taskbar
-  has not come back in ten seconds.
-- "Убрать LimeKit из системы" undoes the tweak changes first.
+  installers restart Explorer, so its folder windows open again, and starts
+  `explorer.exe` itself if the taskbar has not come back in ten seconds.
+- "Убрать LimeKit из системы" undoes the tweak changes as well, right after
+  stopping the wallpapers.
+
+### Fixed
+
+- The window opened taller than the screen of a 1080p laptop at 150% scale,
+  with its top, and the buttons in it, under a taskbar at the top of the
+  screen. It now fits the screen it opens on and starts centered there.
 
 ### For developers
 

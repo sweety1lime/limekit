@@ -72,6 +72,9 @@ pub enum Provenance {
 pub enum TakesEffect {
     #[default]
     Immediately,
+    /// File Explorer windows opened after the change show it; open ones keep
+    /// the old view.
+    NewWindows,
     ExplorerRestart,
     SignOut,
 }

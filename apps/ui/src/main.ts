@@ -126,7 +126,7 @@ interface TweakView {
   title: string;
   description: string;
   provenance: "documented" | "observed" | "unsupported";
-  takes_effect: "immediately" | "explorer_restart" | "sign_out";
+  takes_effect: "immediately" | "new_windows" | "explorer_restart" | "sign_out";
   availability: Availability;
   state: "on" | "off" | "mixed";
   applied: boolean;
@@ -703,6 +703,7 @@ const PROVENANCE_TEXT: Record<TweakView["provenance"], Key> = {
 
 const EFFECT_TEXT: Record<TweakView["takes_effect"], Key | null> = {
   immediately: null,
+  new_windows: "effect.new_windows",
   explorer_restart: "effect.explorer_restart",
   sign_out: "effect.sign_out",
 };

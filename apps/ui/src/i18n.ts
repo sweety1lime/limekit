@@ -42,6 +42,10 @@ const strings = {
   "availability.wrong_edition": { ru: "только для {editions}", en: "only for {editions}" },
   "availability.openSettings": { ru: "Открыть Параметры", en: "Open Settings" },
 
+  "effect.new_windows": {
+    ru: "заметно в новых окнах Проводника",
+    en: "shows in new File Explorer windows",
+  },
   "effect.explorer_restart": {
     ru: "заметно после перезапуска Проводника",
     en: "shows after File Explorer restarts",
@@ -54,8 +58,9 @@ const strings = {
     en: "turned on by LimeKit; off puts back what was there",
   },
 
-  "confirm.onTitle": { ru: "Включить «{title}»", en: "Turn on “{title}”" },
-  "confirm.offTitle": { ru: "Выключить «{title}»", en: "Turn off “{title}”" },
+  // No quotes around {title}: titles carry their own, as in «Пуск».
+  "confirm.onTitle": { ru: "Включить: {title}", en: "Turn on: {title}" },
+  "confirm.offTitle": { ru: "Выключить: {title}", en: "Turn off: {title}" },
   "confirm.changes": { ru: "Что изменится:", en: "What changes:" },
   "confirm.revert": {
     ru: "LimeKit вернёт значения, которые стояли до него.",
@@ -77,8 +82,8 @@ const strings = {
   "value.on": { ru: "включено", en: "on" },
   "value.off": { ru: "выключено", en: "off" },
 
-  "outcome.on": { ru: "«{title}» включено", en: "“{title}” is on" },
-  "outcome.off": { ru: "«{title}» выключено", en: "“{title}” is off" },
+  "outcome.on": { ru: "Включено: {title}", en: "On: {title}" },
+  "outcome.off": { ru: "Выключено: {title}", en: "Off: {title}" },
   "outcome.already": { ru: "Уже так, ничего не меняли", en: "Already like that, nothing changed" },
   "outcome.changedSince": {
     ru: "Эти значения поменяли уже после LimeKit, их не трогали: {list}",
@@ -100,8 +105,8 @@ const strings = {
   },
   "restart.button": { ru: "Перезапустить Проводник", en: "Restart File Explorer" },
   "restart.question": {
-    ru: "Панель задач и значки рабочего стола пропадут на несколько секунд, открытые окна Проводника закроются. Программы и документы это не затронет.",
-    en: "The taskbar and desktop icons disappear for a few seconds and open File Explorer windows close. Programs and documents are not affected.",
+    ru: "Панель задач и значки рабочего стола пропадут на несколько секунд, окна Проводника закроются и откроются снова. Программы и документы это не затронет.",
+    en: "The taskbar and desktop icons disappear for a few seconds, and File Explorer windows close and open again. Programs and documents are not affected.",
   },
   "restart.ok": { ru: "Перезапустить", en: "Restart" },
   "restart.running": { ru: "Перезапускаю Проводник…", en: "Restarting File Explorer…" },

@@ -7,7 +7,7 @@
 # provenance   documented   Microsoft documents the value; cite it in source.
 #              observed     undocumented, but what Windows' own settings write.
 #              unsupported  a trick Windows does not support and may drop.
-# takes_effect immediately | explorer_restart | sign_out
+# takes_effect immediately | new_windows | explorer_restart | sign_out
 # notify       the WM_SETTINGCHANGE area to announce after a switch, as
 #              Windows' own settings do, so open windows pick the change up.
 # path, name   a key under HKEY_CURRENT_USER, without the hive, and a value.
@@ -34,7 +34,10 @@ title.en = "Show file name extensions"
 description.ru = "Проводник показывает расширения у всех файлов, например .exe или .txt. Так сложнее выдать программу «документ.pdf.exe» за документ."
 description.en = "File Explorer shows every file's extension, such as .exe or .txt, which makes a program named “document.pdf.exe” harder to pass off as a document."
 provenance = "observed"
-takes_effect = "explorer_restart"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -50,7 +53,10 @@ title.en = "Show hidden files and folders"
 description.ru = "Проводник показывает файлы и папки с атрибутом «скрытый», например AppData. Системные файлы остаются скрытыми."
 description.en = "File Explorer shows files and folders marked hidden, such as AppData. Protected system files stay hidden."
 provenance = "observed"
-takes_effect = "explorer_restart"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -66,7 +72,10 @@ title.en = "Open File Explorer to This PC"
 description.ru = "Новое окно Проводника открывается со списком дисков, а не на главной странице с недавними файлами."
 description.en = "A new File Explorer window opens on your drives instead of the start page with recent files."
 provenance = "observed"
-takes_effect = "explorer_restart"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -83,8 +92,10 @@ title.en = "Hide the Task View button"
 description.ru = "С панели задач пропадает кнопка, которая показывает открытые окна и виртуальные рабочие столы. Сами рабочие столы и Win+Tab работают как прежде."
 description.en = "The taskbar loses the button that shows open windows and virtual desktops. The desktops themselves and Win+Tab keep working."
 provenance = "observed"
-takes_effect = "explorer_restart"
 notify = "TraySettings"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -120,8 +131,10 @@ title.en = "Search icon instead of the search box"
 description.ru = "Поле поиска на панели задач сжимается до значка и освобождает место для приложений. Поиск открывается щелчком по значку или клавишей Win."
 description.en = "The taskbar search box shrinks to an icon and leaves room for apps. Search still opens with a click on the icon or the Windows key."
 provenance = "observed"
-takes_effect = "explorer_restart"
 notify = "TraySettings"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Search'
@@ -162,6 +175,7 @@ provenance = "observed"
 
 [tweak.requires]
 below_build = 22000
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
@@ -177,6 +191,9 @@ title.en = "No Windows tips and suggestions"
 description.ru = "Windows перестаёт присылать уведомления с советами, как ей пользоваться, и с предложениями сервисов Microsoft."
 description.en = "Windows stops sending notifications with tips on using it and offers for Microsoft services."
 provenance = "observed"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
@@ -195,6 +212,7 @@ provenance = "observed"
 
 [tweak.requires]
 min_build = 17763
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
@@ -225,6 +243,9 @@ description.ru = "После крупных обновлений Windows не о
 description.en = "After major updates Windows no longer opens a full-screen tour of new features and Microsoft offers."
 provenance = "observed"
 
+[tweak.requires]
+verified = [19045]
+
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
 name = "SubscribedContent-310093Enabled"
@@ -242,6 +263,7 @@ provenance = "observed"
 
 [tweak.requires]
 min_build = 19041
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement'
@@ -257,6 +279,9 @@ title.en = "No tips on the lock screen"
 description.ru = "На экране блокировки поверх картинки перестают появляться факты, советы и реклама. Касается фона «Фото» и «Windows: интересное»."
 description.en = "The lock screen stops showing facts, tips and ads over the picture. Applies to the Picture and Windows spotlight backgrounds."
 provenance = "observed"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
@@ -282,6 +307,9 @@ description.ru = "Приложения больше не получают иде
 description.en = "Apps no longer get the ID they use to match ads to your interests. You will not see fewer ads, but they will no longer be personalized."
 provenance = "observed"
 
+[tweak.requires]
+verified = [19045]
+
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo'
 name = "Enabled"
@@ -296,7 +324,9 @@ title.en = "Don't track app launches"
 description.ru = "Windows перестаёт запоминать, какие приложения вы запускаете, чтобы подстраивать под это «Пуск» и поиск. Список часто используемых приложений в «Пуске» пропадёт."
 description.en = "Windows stops recording which apps you launch to tailor Start and search to it. The most used apps list in Start goes away."
 provenance = "observed"
-takes_effect = "explorer_restart"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -315,6 +345,9 @@ description.ru = "Параметры, Проводник и другие при�
 description.en = "Settings, File Explorer and other apps that follow the Windows setting switch to a dark look."
 provenance = "observed"
 notify = "ImmersiveColorSet"
+
+[tweak.requires]
+verified = [19045]
 
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
@@ -351,6 +384,9 @@ description.en = "The taskbar, Start and windows stop being see-through. Text on
 provenance = "observed"
 notify = "ImmersiveColorSet"
 
+
+[tweak.requires]
+verified = [19045]
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
 name = "EnableTransparency"
@@ -362,10 +398,22 @@ missing = { type = "dword", data = 1 }
 id = "appearance.no_animations"
 title.ru = "Без анимации окон и меню"
 title.en = "No window and menu animations"
-description.ru = "Окна, меню и подсказки появляются сразу, без плавного раскрытия и затухания. Это те же галочки, что в «Параметрах быстродействия» Windows, кроме анимации панели задач."
-description.en = "Windows, menus and tooltips appear at once, without sliding or fading. These are the same boxes as in Windows' Performance Options, except for taskbar animations."
-provenance = "documented"
+description.ru = "Окна, меню и подсказки появляются сразу, без плавного раскрытия и затухания. В «Параметрах быстродействия» Windows это «Особые эффекты» со снятыми галочками анимации, кроме анимации панели задач."
+description.en = "Windows, menus and tooltips appear at once, without sliding or fading. In Windows' Performance Options this is “Custom” with the animation boxes cleared, except for taskbar animations."
+# The flags are documented SystemParametersInfo parameters. VisualFXSetting is
+# not documented: it is what Performance Options writes when boxes are cleared
+# by hand, and without it that dialog keeps showing them ticked.
+provenance = "observed"
 source = "https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-systemparametersinfow"
+
+
+[tweak.requires]
+verified = [19045]
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects'
+name = "VisualFXSetting"
+on = { type = "dword", data = 3 }
+off = "delete"
 
 [[tweak.change]]
 parameter = "client_area_animation"
