@@ -953,11 +953,19 @@ fn build_webview(window: HWND, root: &std::path::Path, entry: &str) -> Result<wr
         // runs freely — we contain reach, not execution. Subresource egress
         // (fetch / XHR / WebSocket / remote scripts) is denied by the CSP
         // header in `serve_local_asset`.
-        .with_navigation_handler(|url| url.starts_with("wallpaper://"))
+        .with_navigation_handler(|url| stays_on_wallpaper_origin(&url))
         .with_new_window_req_handler(|_url, _features| wry::NewWindowResponse::Deny)
         .with_url(format!("wallpaper://localhost/{entry}"))
         .build(&host)
         .map_err(|e| HostError::Desktop(format!("failed to create webview: {e}")))
+}
+
+/// Whether a navigation stays on the wallpaper's own origin. WebView2 has no
+/// custom schemes, so wry loads `wallpaper://localhost/x` as
+/// `http://wallpaper.localhost/x` and the navigation handler sees that form.
+/// The trailing slash keeps hosts such as `wallpaper.localhost.example` out.
+fn stays_on_wallpaper_origin(url: &str) -> bool {
+    url.starts_with("http://wallpaper.localhost/")
 }
 
 /// Content Security Policy served with every wallpaper document. It confines a
@@ -1352,5 +1360,25 @@ mod tests {
         assert_eq!(escaped.status(), wry::http::StatusCode::NOT_FOUND);
 
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn the_wallpaper_page_itself_may_load() {
+        // The URL wry gives WebView2 for wallpaper://localhost/index.html.
+        assert!(stays_on_wallpaper_origin(
+            "http://wallpaper.localhost/index.html"
+        ));
+    }
+
+    #[test]
+    fn navigation_off_the_wallpaper_origin_is_refused() {
+        for url in [
+            "https://example.com/",
+            "http://wallpaper.localhost.example.com/",
+            "http://localhost/",
+            "file:///C:/Windows/win.ini",
+        ] {
+            assert!(!stays_on_wallpaper_origin(url), "{url}");
+        }
     }
 }
