@@ -403,6 +403,31 @@ fn import_packages(app: tauri::AppHandle, packages: Vec<std::path::PathBuf>) {
     });
 }
 
+/// Shrinks the window to the work area of its monitor and centers it there.
+/// 1200×800 is taller than a 1080p laptop screen at 150% scale, 720 logical
+/// pixels less the taskbar, and Windows would put the window's top, with the
+/// navigation, under a taskbar at the top of the screen.
+fn fit_to_work_area(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    let Some(monitor) = window.current_monitor()? else {
+        return Ok(());
+    };
+    let area = monitor.work_area();
+    let outer = window.outer_size()?;
+    let inner = window.inner_size()?;
+    let width = outer.width.min(area.size.width);
+    let height = outer.height.min(area.size.height);
+    // set_size sizes the client area. The frame comes on top of it: invisible
+    // without decorations, but still there for resizing.
+    window.set_size(tauri::PhysicalSize::new(
+        width - (outer.width - inner.width),
+        height - (outer.height - inner.height),
+    ))?;
+    window.set_position(tauri::PhysicalPosition::new(
+        area.position.x + ((area.size.width - width) / 2) as i32,
+        area.position.y + ((area.size.height - height) / 2) as i32,
+    ))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // `LimeKit.exe --cleanup` runs without a window. It has to branch off
@@ -481,6 +506,13 @@ pub fn run() {
             tweak_panel::restart_explorer,
         ])
         .setup(|app| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(error) = fit_to_work_area(&window) {
+                    eprintln!("window not fitted to the screen: {error}");
+                }
+                window.show()?;
+            }
             // Double-clicking a .wpk should land here (per-user, no admin).
             if let Err(error) = assoc::register() {
                 eprintln!("wpk association not registered: {error}");
