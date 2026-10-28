@@ -209,14 +209,18 @@ impl<R: Registry + Parameters> Engine<R> {
     }
 
     /// Undoes one change. Unless `force`, a value something else has changed
-    /// since is left alone and reported instead.
+    /// since is left alone and reported instead. A value that is already what
+    /// it was before the change counts as undone, whoever put it back: setting
+    /// a shell setting through the shell, as one tweak's change does, writes
+    /// the registry value of another change of the same tweak as well.
     pub fn revert(&mut self, id: EntryId, force: bool) -> Result<RevertOutcome, EngineError> {
         let entry = self.entry(id)?.clone();
         if entry.state != State::Applied {
             return Ok(RevertOutcome::NotApplied);
         }
         let current = self.read(&entry.target)?;
-        if !force && !same(current.as_ref(), raw(&entry.after).as_ref()) {
+        let back_already = same(current.as_ref(), raw(&entry.before.value).as_ref());
+        if !force && !back_already && !same(current.as_ref(), raw(&entry.after).as_ref()) {
             return Ok(RevertOutcome::ChangedSince {
                 current: current.as_ref().map(Value::from_raw),
             });
@@ -752,6 +756,19 @@ mod tests {
                 RevertOutcome::ChangedSince {
                     current: Some(Value::Dword(7))
                 }
+            );
+        }
+
+        #[test]
+        fn takes_a_value_that_is_back_already_as_undone() {
+            let setup = Setup::new();
+            let mut engine = setup.engine(existing());
+            engine.apply("t", &[set("Shown", 1)]).unwrap();
+            engine.registry.write(KEY, "Shown", &dword(0)).unwrap();
+
+            assert_eq!(
+                engine.revert(EntryId(1), false).unwrap(),
+                RevertOutcome::Reverted
             );
         }
 
