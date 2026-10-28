@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 — 36 tweaks, and two that Explorer no longer undoes
+
+17 more tweaks, 36 in all, 33 of them checked on Windows 10 22H2. File
+extensions and hidden files, two tweaks from 0.3.0, no longer turn themselves
+off when the Folder Options dialog is closed.
 
 ### Added
 
@@ -10,10 +14,10 @@
   expanding to the open folder, all folders in the navigation pane. Taskbar,
   for Windows 10: a separate button for every window and small buttons. Also
   no account notifications in Start, no recently opened items in jump lists,
-  the language list hidden from websites, no search history on the PC, no
-  notifications or sounds on the lock screen, and the accent color on the
-  taskbar and on title bars. A new "Уведомления" group holds the two
-  notification ones. 33 of the 36 are checked on Windows 10 22H2; the other
+  the language list hidden from websites, no search history on the PC, and
+  the accent color on the taskbar and on title bars. A new "Уведомления" group
+  holds two switches, no notifications on the lock screen and no notification
+  sounds. 33 of the 36 are checked on Windows 10 22H2; the other
   three are for Windows 11 only and say they are not checked yet.
 
 ### Fixed
@@ -23,8 +27,10 @@
   windows read the registry value, while the Folder Options dialog loads its
   own copy of the state and writes it back when it closes, even on Cancel. So
   opening that dialog on the View tab quietly reverted the tweak. They now set
-  the shell's copy as well. After updating from 0.3.0 either one may show
-  "сейчас стоит другое значение" until it is switched on again.
+  the shell's copy as well. If you turned either one on in 0.3.0, the update
+  leaves Explorer's old copy as it was and LimeKit still shows the tweak as
+  on; switch it off, close the LimeKit window, open it again and switch the
+  tweak on to bring the copy up to date.
 - Switching a tweak off no longer reports that a value "was changed after
   LimeKit" when it is already back to what it was.
 

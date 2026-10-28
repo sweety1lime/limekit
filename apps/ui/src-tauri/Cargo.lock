@@ -1718,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "ipc"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -2461,7 +2461,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "platform"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "dirs",
  "raw-window-handle",
@@ -4064,7 +4064,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "tweaks"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "platform",
  "serde",
@@ -4104,7 +4104,7 @@ dependencies = [
 
 [[package]]
 name = "ui"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "base64 0.22.1",
  "dirs",
@@ -4991,7 +4991,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "wpk"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "serde_json",

@@ -15,9 +15,10 @@ isn't, isn't.
 
 ![A wallpaper drawn behind the desktop icons, a tweak switched on through a window that previews the change, and one button that undoes it](docs/media/limekit.gif)
 
-*An animation, not a screen recording: the desktop is drawn and the window
-follows the real one, with colors and texts taken from the app. The interface
-is in Russian for now.*
+*An animation, not a screen recording. The desktop is drawn, the window follows
+the real one (colors and texts from the app), and the strip with three steps
+near the bottom is there to explain: the app itself has no such strip. The
+interface is in Russian for now.*
 
 ## What works today
 
@@ -40,21 +41,25 @@ and glTF 3D models.
   someone else's with a double-click. Older `.wpk` files from 0.1 still open.
 - A community catalog inside the app; downloads are checksum-verified.
 
-**System tweaks**: 19 switches for File Explorer, the taskbar, Start,
-appearance, and Windows tips and ads. File extensions, taskbar icons on the
-left, dark mode, no animations, no Microsoft Store suggestions, and so on.
+**System tweaks**: 36 switches for File Explorer, the taskbar, Start,
+notifications, privacy, appearance, and Windows tips and ads. File extensions,
+taskbar icons on the left, dark mode, no animations, no Microsoft Store
+suggestions, and so on.
 
 - Before anything changes, the window shows each value as it is and as it will
   be.
 - Every change is written to a journal first, then made and read back.
   Turning a tweak off puts back what was there before LimeKit, even a setting
   you had made by hand. "Вернуть всё" (undo everything) reverts it all at once,
-  and the undo can be saved as a `.reg` file that works without LimeKit.
+  and the undo can be saved as a `.reg` file that works without LimeKit. The
+  file holds registry values only: system parameters (animations, and File
+  Explorer's own copy of four of its settings) are not in it, only LimeKit
+  puts those back, and the file says so.
 - If Windows or another program changes a value after LimeKit set it, the undo
   leaves it alone and the window tells you what changed.
 - Each tweak shows where its value comes from (Microsoft's documentation, or
   what Windows' own Settings write), whether it fits your build and edition,
-  and whether anyone has checked it on that build. All 16 tweaks for Windows
+  and whether anyone has checked it on that build. All 33 tweaks for Windows
   10 are checked on 22H2 (19045); the three for Windows 11 only are not yet.
 - Only your account's settings, and no admin rights. That is why there are no
   group policy tweaks: only an administrator can write those.
@@ -65,9 +70,10 @@ The interface is in Russian for now; tweak texts already have English.
 
 In order, not by importance:
 
-1. **More tweaks** — around thirty by the next release: taskbar grouping, File
-   Explorer without Home and Gallery, lock screen settings. Every new tweak
-   gets the same hands-on check on a real Windows.
+1. **More tweaks** — the promised thirty are in, and there are 36 now. Next
+   come tweaks for Windows 11, such as File Explorer without Home and
+   Gallery. Each gets the same hands-on check on a real Windows, so they wait
+   until there is a real Windows 11 to check them on.
 2. **Themes** — cursors, sounds, accent colours, folder icons. Build a set,
    share it as a file, put everything back the way it was.
 3. **Widgets and a dock** — a clock, a system monitor, notes on the desktop; a
