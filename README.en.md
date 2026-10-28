@@ -52,9 +52,10 @@ suggestions, and so on.
   Turning a tweak off puts back what was there before LimeKit, even a setting
   you had made by hand. "Вернуть всё" (undo everything) reverts it all at once,
   and the undo can be saved as a `.reg` file that works without LimeKit. The
-  file holds registry values only: system parameters (animations, and File
-  Explorer's own copy of four of its settings) are not in it, only LimeKit
-  puts those back, and the file says so.
+  file holds registry values only: system parameters (animations) are not in
+  it, only LimeKit puts those back, and the file says so. File Explorer is not
+  told about an imported file, so its Folder Options dialog may bring back the
+  old state of file extensions, hidden files, check boxes and icons.
 - If Windows or another program changes a value after LimeKit set it, the undo
   leaves it alone and the window tells you what changed.
 - Each tweak shows where its value comes from (Microsoft's documentation, or

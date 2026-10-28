@@ -10,13 +10,14 @@
 # takes_effect immediately | new_windows | explorer_restart | sign_out
 # notify       the WM_SETTINGCHANGE area to announce after a switch, as
 #              Windows' own settings do, so open windows pick the change up.
+#              File Explorer also keeps four of its settings in memory (file
+#              extensions, hidden files, check boxes, icons only) and its
+#              Folder Options dialog writes that copy back when it closes,
+#              undoing a change made only in the registry. Those tweaks
+#              announce ShellState, and Explorer reads the registry again.
 # path, name   a key under HKEY_CURRENT_USER, without the hive, and a value.
 # parameter    instead of path and name: a system parameter set through
-#              SystemParametersInfo or the shell's own settings call, on and
-#              off as DWORD 1 and 0. A tweak for one of the four shell
-#              settings lists the registry value and the parameter: File
-#              Explorer keeps both, and its Folder Options dialog undoes a
-#              change made to only one of them.
+#              SystemParametersInfo, on and off as DWORD 1 and 0.
 # on / off     a value such as { type = "dword", data = 1 }, or "delete".
 #              off is the Windows default.
 # missing      what Windows goes by while the value does not exist yet.
@@ -39,6 +40,7 @@ description.ru = "Проводник показывает расширения �
 description.en = "File Explorer shows every file's extension, such as .exe or .txt, which makes a program named “document.pdf.exe” harder to pass off as a document."
 provenance = "observed"
 takes_effect = "new_windows"
+notify = "ShellState"
 
 [tweak.requires]
 verified = [19045]
@@ -50,11 +52,6 @@ on = { type = "dword", data = 0 }
 off = { type = "dword", data = 1 }
 missing = { type = "dword", data = 1 }
 
-[[tweak.change]]
-parameter = "show_extensions"
-on = { type = "dword", data = 1 }
-off = { type = "dword", data = 0 }
-
 [[tweak]]
 id = "explorer.hidden_files"
 title.ru = "Показывать скрытые файлы и папки"
@@ -63,6 +60,7 @@ description.ru = "Проводник показывает файлы и папк
 description.en = "File Explorer shows files and folders marked hidden, such as AppData. Protected system files stay hidden."
 provenance = "observed"
 takes_effect = "new_windows"
+notify = "ShellState"
 
 [tweak.requires]
 verified = [19045]
@@ -73,11 +71,6 @@ name = "Hidden"
 on = { type = "dword", data = 1 }
 off = { type = "dword", data = 2 }
 missing = { type = "dword", data = 2 }
-
-[[tweak.change]]
-parameter = "show_all_objects"
-on = { type = "dword", data = 1 }
-off = { type = "dword", data = 0 }
 
 [[tweak]]
 id = "explorer.open_to_this_pc"
@@ -162,6 +155,7 @@ description.ru = "У файлов и папок появляются флажк�
 description.en = "Files and folders get check boxes, which make it easy to select several items with a mouse or a finger."
 provenance = "observed"
 takes_effect = "new_windows"
+notify = "ShellState"
 
 [tweak.requires]
 verified = [19045]
@@ -173,11 +167,6 @@ on = { type = "dword", data = 1 }
 off = { type = "dword", data = 0 }
 missing = { type = "dword", data = 0 }
 
-[[tweak.change]]
-parameter = "auto_check_select"
-on = { type = "dword", data = 1 }
-off = { type = "dword", data = 0 }
-
 [[tweak]]
 id = "explorer.icons_only"
 title.ru = "Значки вместо эскизов"
@@ -186,6 +175,7 @@ description.ru = "Проводник показывает у картинок и
 description.en = "File Explorer shows plain icons for pictures and videos instead of thumbnails of their content."
 provenance = "observed"
 takes_effect = "new_windows"
+notify = "ShellState"
 
 [tweak.requires]
 verified = [19045]
@@ -196,11 +186,6 @@ name = "IconsOnly"
 on = { type = "dword", data = 1 }
 off = { type = "dword", data = 0 }
 missing = { type = "dword", data = 0 }
-
-[[tweak.change]]
-parameter = "icons_only"
-on = { type = "dword", data = 1 }
-off = { type = "dword", data = 0 }
 
 [[tweak]]
 id = "explorer.nav_expand"

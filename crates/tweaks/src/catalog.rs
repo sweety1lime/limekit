@@ -418,6 +418,24 @@ mod tests {
         }
     }
 
+    // File Explorer keeps these four settings in memory as well, and its Folder
+    // Options dialog writes that copy back when it closes, which undoes a
+    // change made only in the registry. Announcing ShellState makes Explorer
+    // read the registry again.
+    #[test]
+    fn the_explorer_settings_kept_in_memory_announce_the_shell_state() {
+        let catalog = Catalog::builtin().unwrap();
+        for id in [
+            "explorer.file_extensions",
+            "explorer.hidden_files",
+            "explorer.checkboxes",
+            "explorer.icons_only",
+        ] {
+            let tweak = catalog.get(id).unwrap();
+            assert_eq!(tweak.notify.as_deref(), Some("ShellState"), "{id}");
+        }
+    }
+
     #[test]
     fn reads_a_tweak() {
         let catalog = sample();

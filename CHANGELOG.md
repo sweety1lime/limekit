@@ -23,16 +23,13 @@ off when the Folder Options dialog is closed.
 ### Fixed
 
 - **"Показывать расширения файлов" and "Показывать скрытые файлы" could be
-  undone by Windows.** File Explorer keeps these settings, and two more, twice:
-  windows read the registry value, while the Folder Options dialog loads its
-  own copy of the state and writes it back when it closes, even on Cancel. So
-  opening that dialog on the View tab quietly reverted the tweak. They now set
-  the shell's copy as well. If you turned either one on in 0.3.0, the update
-  leaves Explorer's old copy as it was and LimeKit still shows the tweak as
-  on; switch it off, close the LimeKit window, open it again and switch the
-  tweak on to bring the copy up to date.
-- Switching a tweak off no longer reports that a value "was changed after
-  LimeKit" when it is already back to what it was.
+  undone by Windows.** File Explorer keeps these settings, and two more, in
+  memory as well as in the registry, and its Folder Options dialog loads that
+  copy and writes it back when it closes, even on Cancel. So opening the dialog
+  on the View tab quietly reverted the tweak. After a switch LimeKit now tells
+  Explorer that the settings changed, and Explorer reads the registry again. If
+  you turned either one on in 0.3.0, Explorer may still hold the old state:
+  switch the tweak off and on once.
 
 ### Changed
 
@@ -42,12 +39,10 @@ off when the Folder Options dialog is closed.
 
 ### For developers
 
-- `platform::parameters` also reads and sets four shell settings through
-  `SHGetSetSettings`: file name extensions, hidden files, check boxes and
-  icons only. `docs/research/tweaks-catalog.md` explains why a tweak for one of
-  them lists the registry value and the parameter.
-- `Engine::revert` takes a value that is already what it was before the change
-  as undone.
+- The tweaks for file name extensions, hidden files, check boxes and icons only
+  announce `ShellState` after a switch (`notify` in the catalog).
+  `docs/research/tweaks-catalog.md` explains why they do not go through
+  `SHGetSetSettings`.
 
 ## 0.3.0 — tweaks you can undo, and web wallpapers that show
 

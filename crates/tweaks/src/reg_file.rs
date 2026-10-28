@@ -50,7 +50,7 @@ pub fn undo_reg_text(entries: &[Entry]) -> String {
         let names: Vec<&str> = parameters.iter().map(|name| name.action_name()).collect();
         let _ = write!(
             text,
-            "\r\n; Не входят: системные параметры. Их вернёт LimeKit или то окно Windows, где они настраиваются:\r\n; {}\r\n",
+            "\r\n; Не входят: системные параметры, их вернёт LimeKit или Параметры Windows:\r\n; {}\r\n",
             names.join(", ")
         );
     }

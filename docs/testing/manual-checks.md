@@ -138,9 +138,10 @@ Then, once per build:
    `explorer.checkboxes` and `explorer.icons_only` (switch the first two to
    their Windows defaults first if they are on), open Folder Options → View
    and press Cancel. The dialog must show them as chosen, and LimeKit must
-   still show them on: File Explorer keeps these four twice, and the dialog
-   writes its own copy back when it closes
-   (`docs/research/tweaks-catalog.md`).
+   still show them on: File Explorer keeps these four in memory as well, and
+   the dialog writes that copy back when it closes, so LimeKit announces
+   `ShellState` after a switch (`docs/research/tweaks-catalog.md`). Switch each
+   one off and open the dialog again: they must stay off.
 
 ## Politeness
 
