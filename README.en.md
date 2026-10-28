@@ -13,9 +13,11 @@ Two modules are finished: live wallpapers and system tweaks. Everything else is
 in the plans below, and I've written them honestly — what's done is done, what
 isn't, isn't.
 
-<!-- GIF GOES HERE: live wallpaper behind the icons with the app window beside
-     it. Drop the file in docs/media/ and replace this comment with
-     ![LimeKit](docs/media/limekit.gif) -->
+![A wallpaper drawn behind the desktop icons, a tweak switched on through a window that previews the change, and one button that undoes it](docs/media/limekit.gif)
+
+*An animation, not a screen recording: the desktop is drawn and the window
+follows the real one, with colors and texts taken from the app. The interface
+is in Russian for now.*
 
 ## What works today
 
