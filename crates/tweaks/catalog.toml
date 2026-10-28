@@ -12,7 +12,11 @@
 #              Windows' own settings do, so open windows pick the change up.
 # path, name   a key under HKEY_CURRENT_USER, without the hive, and a value.
 # parameter    instead of path and name: a system parameter set through
-#              SystemParametersInfo, on and off as DWORD 1 and 0.
+#              SystemParametersInfo or the shell's own settings call, on and
+#              off as DWORD 1 and 0. A tweak for one of the four shell
+#              settings lists the registry value and the parameter: File
+#              Explorer keeps both, and its Folder Options dialog undoes a
+#              change made to only one of them.
 # on / off     a value such as { type = "dword", data = 1 }, or "delete".
 #              off is the Windows default.
 # missing      what Windows goes by while the value does not exist yet.
@@ -46,6 +50,11 @@ on = { type = "dword", data = 0 }
 off = { type = "dword", data = 1 }
 missing = { type = "dword", data = 1 }
 
+[[tweak.change]]
+parameter = "show_extensions"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+
 [[tweak]]
 id = "explorer.hidden_files"
 title.ru = "Показывать скрытые файлы и папки"
@@ -65,6 +74,11 @@ on = { type = "dword", data = 1 }
 off = { type = "dword", data = 2 }
 missing = { type = "dword", data = 2 }
 
+[[tweak.change]]
+parameter = "show_all_objects"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+
 [[tweak]]
 id = "explorer.open_to_this_pc"
 title.ru = "Открывать Проводник на «Этот компьютер»"
@@ -82,6 +96,149 @@ path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
 name = "LaunchTo"
 on = { type = "dword", data = 1 }
 off = "delete"
+
+[[tweak]]
+id = "explorer.recent_files"
+title.ru = "Без недавних файлов в быстром доступе"
+title.en = "No recent files in Quick access"
+description.ru = "Раздел «Быстрый доступ» в Проводнике перестаёт показывать недавно открытые файлы."
+description.en = "The Quick access section in File Explorer stops showing recently opened files."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer'
+name = "ShowRecent"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "explorer.frequent_folders"
+title.ru = "Без часто используемых папок в быстром доступе"
+title.en = "No frequent folders in Quick access"
+description.ru = "Раздел «Быстрый доступ» в Проводнике перестаёт показывать папки, которые ты открываешь чаще всего."
+description.en = "The Quick access section in File Explorer stops showing the folders you open most often."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer'
+name = "ShowFrequent"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "explorer.sync_notifications"
+title.ru = "Без предложений OneDrive и других служб в Проводнике"
+title.en = "No OneDrive and other sync service offers in File Explorer"
+description.ru = "Проводник перестаёт показывать в окне папки уведомления и предложения служб синхронизации, например OneDrive."
+description.en = "File Explorer stops showing notifications and offers from sync services, such as OneDrive, inside folder windows."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "ShowSyncProviderNotifications"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "explorer.checkboxes"
+title.ru = "Флажки для выбора файлов"
+title.en = "Check boxes for selecting files"
+description.ru = "У файлов и папок появляются флажки, которыми удобно выделять несколько элементов мышью или пальцем."
+description.en = "Files and folders get check boxes, which make it easy to select several items with a mouse or a finger."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "AutoCheckSelect"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
+[[tweak.change]]
+parameter = "auto_check_select"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+
+[[tweak]]
+id = "explorer.icons_only"
+title.ru = "Значки вместо эскизов"
+title.en = "Icons instead of thumbnails"
+description.ru = "Проводник показывает у картинок и видео обычные значки, а не миниатюры содержимого."
+description.en = "File Explorer shows plain icons for pictures and videos instead of thumbnails of their content."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "IconsOnly"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
+[[tweak.change]]
+parameter = "icons_only"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+
+[[tweak]]
+id = "explorer.nav_expand"
+title.ru = "Область навигации раскрывается до открытой папки"
+title.en = "Navigation pane expands to the open folder"
+description.ru = "Дерево папок в левой панели Проводника раскрывается до той папки, которую ты открыл."
+description.en = "The folder tree in File Explorer's left pane expands to the folder you have open."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "NavPaneExpandToCurrentFolder"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
+[[tweak]]
+id = "explorer.nav_all_folders"
+title.ru = "Все папки в области навигации"
+title.en = "All folders in the navigation pane"
+description.ru = "Левая панель Проводника показывает не только быстрый доступ и диски, но и рабочий стол, корзину, панель управления и другие папки."
+description.en = "File Explorer's left pane shows not only Quick access and drives but also the desktop, the Recycle Bin, Control Panel and other folders."
+provenance = "observed"
+takes_effect = "new_windows"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "NavPaneShowAllFolders"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
 
 # --- Taskbar ------------------------------------------------------------------
 
@@ -142,6 +299,46 @@ name = "SearchboxTaskbarMode"
 on = { type = "dword", data = 1 }
 off = { type = "dword", data = 2 }
 
+[[tweak]]
+id = "taskbar.never_combine"
+title.ru = "Отдельная кнопка для каждого окна"
+title.en = "A separate button for every window"
+description.ru = "Окна одной программы больше не сливаются в одну кнопку панели задач: у каждого окна своя кнопка с подписью."
+description.en = "Windows of one app no longer merge into a single taskbar button: each window gets its own button with a label."
+provenance = "observed"
+notify = "TraySettings"
+
+[tweak.requires]
+below_build = 22000
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "TaskbarGlomLevel"
+on = { type = "dword", data = 2 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
+[[tweak]]
+id = "taskbar.small_icons"
+title.ru = "Маленькие кнопки панели задач"
+title.en = "Small taskbar buttons"
+description.ru = "Кнопки на панели задач становятся мельче, и на ней помещается больше программ."
+description.en = "Taskbar buttons get smaller, so more apps fit on the taskbar."
+provenance = "observed"
+notify = "TraySettings"
+
+[tweak.requires]
+below_build = 22000
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "TaskbarSmallIcons"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
 # --- Start --------------------------------------------------------------------
 
 [[tweak]]
@@ -159,6 +356,25 @@ min_build = 22621
 [[tweak.change]]
 path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
 name = "Start_IrisRecommendations"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "start.account_notifications"
+title.ru = "Без уведомлений об учётной записи в «Пуске»"
+title.en = "No account notifications in Start"
+description.ru = "«Пуск» перестаёт показывать напоминания об учётной записи Microsoft. Обязательные уведомления Windows всё равно покажет."
+description.en = "Start stops showing reminders about your Microsoft account. Windows still shows the required notifications."
+provenance = "observed"
+
+[tweak.requires]
+min_build = 19041
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "Start_AccountNotifications"
 on = { type = "dword", data = 0 }
 off = { type = "dword", data = 1 }
 missing = { type = "dword", data = 1 }
@@ -335,6 +551,99 @@ on = { type = "dword", data = 0 }
 off = { type = "dword", data = 1 }
 missing = { type = "dword", data = 1 }
 
+[[tweak]]
+id = "privacy.recent_items"
+title.ru = "Не показывать недавно открытые элементы"
+title.en = "Don't show recently opened items"
+description.ru = "Списки переходов в «Пуске» и на панели задач и быстрый доступ Проводника перестают показывать недавно открытые файлы и папки."
+description.en = "Jump lists in Start and on the taskbar, and Quick access in File Explorer, stop showing recently opened files and folders."
+provenance = "observed"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+name = "Start_TrackDocs"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "privacy.language_list"
+title.ru = "Скрыть список языков от сайтов"
+title.en = "Hide the language list from websites"
+description.ru = "Сайты не получают список языков, добавленных в Windows, и не подбирают по нему местное содержимое."
+description.en = "Websites no longer get the list of languages added to Windows and do not use it to pick local content."
+provenance = "observed"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Control Panel\International\User Profile'
+name = "HttpAcceptLanguageOptOut"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
+[[tweak]]
+id = "privacy.search_history"
+title.ru = "Не хранить историю поиска на этом компьютере"
+title.en = "Don't keep search history on this PC"
+description.ru = "Windows перестаёт сохранять на этом компьютере историю твоих запросов в поиске."
+description.en = "Windows stops saving your search queries on this PC."
+provenance = "observed"
+
+[tweak.requires]
+min_build = 18362
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\SearchSettings'
+name = "IsDeviceSearchHistoryEnabled"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+# --- Notifications ------------------------------------------------------------
+
+[[tweak]]
+id = "notifications.lock_screen"
+title.ru = "Без уведомлений на экране блокировки"
+title.en = "No notifications on the lock screen"
+description.ru = "Пока экран заблокирован, на нём не показываются уведомления приложений."
+description.en = "While the screen is locked, it shows no app notifications."
+provenance = "observed"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Notifications\Settings'
+name = "NOC_GLOBAL_SETTING_ALLOW_TOASTS_ABOVE_LOCK"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "notifications.sounds"
+title.ru = "Без звуков уведомлений"
+title.en = "No notification sounds"
+description.ru = "Уведомления приходят молча: звук не воспроизводится."
+description.en = "Notifications arrive silently, with no sound."
+provenance = "observed"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Notifications\Settings'
+name = "NOC_GLOBAL_SETTING_ALLOW_NOTIFICATION_SOUND"
+on = { type = "dword", data = 0 }
+off = { type = "dword", data = 1 }
+missing = { type = "dword", data = 1 }
+
 # --- Appearance ---------------------------------------------------------------
 
 [[tweak]]
@@ -374,6 +683,44 @@ name = "SystemUsesLightTheme"
 on = { type = "dword", data = 0 }
 off = { type = "dword", data = 1 }
 missing = { type = "dword", data = 1 }
+
+[[tweak]]
+id = "appearance.accent_taskbar"
+title.ru = "Цвет акцента на панели задач и в «Пуске»"
+title.en = "Accent color on the taskbar and Start"
+description.ru = "Панель задач, «Пуск» и центр уведомлений окрашиваются в цвет акцента из Параметров. Работает, когда Windows в тёмном режиме."
+description.en = "The taskbar, Start and the notification center take the accent color from Settings. It works when Windows is in dark mode."
+provenance = "observed"
+notify = "ImmersiveColorSet"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+name = "ColorPrevalence"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
+
+[[tweak]]
+id = "appearance.accent_titlebars"
+title.ru = "Цвет акцента в заголовках окон"
+title.en = "Accent color on title bars"
+description.ru = "Заголовки окон и их границы окрашиваются в цвет акцента из Параметров."
+description.en = "Window title bars and borders take the accent color from Settings."
+provenance = "observed"
+notify = "ImmersiveColorSet"
+
+[tweak.requires]
+verified = [19045]
+
+[[tweak.change]]
+path = 'Software\Microsoft\Windows\DWM'
+name = "ColorPrevalence"
+on = { type = "dword", data = 1 }
+off = { type = "dword", data = 0 }
+missing = { type = "dword", data = 0 }
 
 [[tweak]]
 id = "appearance.no_transparency"

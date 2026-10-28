@@ -715,6 +715,7 @@ const CATEGORY_TEXT: Record<string, Key> = {
   start: "category.start",
   suggestions: "category.suggestions",
   privacy: "category.privacy",
+  notifications: "category.notifications",
   appearance: "category.appearance",
 };
 

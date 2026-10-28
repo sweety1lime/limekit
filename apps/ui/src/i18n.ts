@@ -28,6 +28,7 @@ const strings = {
   "category.start": { ru: "Меню «Пуск»", en: "Start" },
   "category.suggestions": { ru: "Советы и реклама Windows", en: "Windows tips and ads" },
   "category.privacy": { ru: "Конфиденциальность", en: "Privacy" },
+  "category.notifications": { ru: "Уведомления", en: "Notifications" },
   "category.appearance": { ru: "Оформление", en: "Appearance" },
 
   "provenance.documented": { ru: "документировано Microsoft", en: "documented by Microsoft" },

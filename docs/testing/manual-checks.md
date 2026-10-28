@@ -107,6 +107,23 @@ What to look at:
 | `appearance.dark_system` | the taskbar and Start turn dark (Windows 11) |
 | `appearance.no_transparency` | the taskbar stops being see-through |
 | `appearance.no_animations` | minimizing a window and opening a menu; Performance Options boxes |
+| `explorer.recent_files` | Quick access in a new window; Folder Options → General, "Show recently used files in Quick access" |
+| `explorer.frequent_folders` | the same, "Show frequently used folders in Quick access" |
+| `explorer.sync_notifications` | Folder Options → View, "Show sync provider notifications" |
+| `explorer.checkboxes` | a folder in the table view with one item selected shows check boxes; Folder Options → View, "Use check boxes to select items" |
+| `explorer.icons_only` | a picture in a new window has a plain icon, not a thumbnail; Folder Options → View, "Always show icons, never thumbnails" |
+| `explorer.nav_expand` | Folder Options → View, "Expand to open folder" |
+| `explorer.nav_all_folders` | the left pane of a new window; Folder Options → View, "Show all folders" |
+| `taskbar.never_combine` | two windows of one app have two labeled buttons (Windows 10) |
+| `taskbar.small_icons` | the taskbar gets lower (Windows 10) |
+| `start.account_notifications` | Settings → Personalization → Start, "Show account-related notifications…" |
+| `privacy.recent_items` | the same page, "Show recently opened items in Jump Lists…" |
+| `privacy.language_list` | Settings → Privacy → General, "Let websites provide locally relevant content…" |
+| `privacy.search_history` | Settings → Search → Permissions & History, "Search history on this device" |
+| `notifications.lock_screen` | Settings → System → Notifications, "Show notifications on the lock screen" |
+| `notifications.sounds` | the same page, "Allow notifications to play sounds" |
+| `appearance.accent_taskbar` | Settings → Personalization → Colors, "Start, taskbar, and action center" |
+| `appearance.accent_titlebars` | the same page, "Title bars and window borders" |
 
 Then, once per build:
 
@@ -117,6 +134,13 @@ Then, once per build:
    the system parameters it cannot restore.
 4. Press **Перезапустить Проводник** while a video wallpaper plays. The
    taskbar must come back within ten seconds and the wallpaper with it.
+5. Turn on `explorer.file_extensions`, `explorer.hidden_files`,
+   `explorer.checkboxes` and `explorer.icons_only` (switch the first two to
+   their Windows defaults first if they are on), open Folder Options → View
+   and press Cancel. The dialog must show them as chosen, and LimeKit must
+   still show them on: File Explorer keeps these four twice, and the dialog
+   writes its own copy back when it closes
+   (`docs/research/tweaks-catalog.md`).
 
 ## Politeness
 

@@ -2,11 +2,46 @@
 
 ## Unreleased
 
+### Added
+
+- **17 more tweaks, 36 in all.** File Explorer: no recent files and no frequent
+  folders in Quick access, no OneDrive and sync service offers, check boxes
+  for selecting files, icons instead of thumbnails, the navigation pane
+  expanding to the open folder, all folders in the navigation pane. Taskbar,
+  for Windows 10: a separate button for every window and small buttons. Also
+  no account notifications in Start, no recently opened items in jump lists,
+  the language list hidden from websites, no search history on the PC, no
+  notifications or sounds on the lock screen, and the accent color on the
+  taskbar and on title bars. A new "Уведомления" group holds the two
+  notification ones. 33 of the 36 are checked on Windows 10 22H2; the other
+  three are for Windows 11 only and say they are not checked yet.
+
+### Fixed
+
+- **"Показывать расширения файлов" and "Показывать скрытые файлы" could be
+  undone by Windows.** File Explorer keeps these settings, and two more, twice:
+  windows read the registry value, while the Folder Options dialog loads its
+  own copy of the state and writes it back when it closes, even on Cancel. So
+  opening that dialog on the View tab quietly reverted the tweak. They now set
+  the shell's copy as well. After updating from 0.3.0 either one may show
+  "сейчас стоит другое значение" until it is switched on again.
+- Switching a tweak off no longer reports that a value "was changed after
+  LimeKit" when it is already back to what it was.
+
 ### Changed
 
 - The background player shows up in Task Manager and in the file's
   Properties as "LimeKit wallpaper player" by 2fame. It used to be "renderer"
   with no publisher, in both `renderer.exe` and `limekit-daemon.exe`.
+
+### For developers
+
+- `platform::parameters` also reads and sets four shell settings through
+  `SHGetSetSettings`: file name extensions, hidden files, check boxes and
+  icons only. `docs/research/tweaks-catalog.md` explains why a tweak for one of
+  them lists the registry value and the parameter.
+- `Engine::revert` takes a value that is already what it was before the change
+  as undone.
 
 ## 0.3.0 — tweaks you can undo, and web wallpapers that show
 
