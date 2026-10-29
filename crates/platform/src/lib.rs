@@ -139,6 +139,7 @@ pub mod parameters;
 pub mod registry;
 pub mod resources;
 pub mod shell;
+pub mod sounds;
 pub mod system;
 pub mod tray;
 pub mod vulkan;

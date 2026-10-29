@@ -1,16 +1,16 @@
 [package]
 name = "themes"
-description = "LimeKit themes: cursor sets applied through the tweak journal"
+description = "LimeKit themes: cursor and sound sets applied through the tweak journal"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+platform = { path = "../platform" }
 tweaks = { path = "../tweaks" }
 thiserror.workspace = true
 
 [dev-dependencies]
-platform = { path = "../platform" }
 tempfile = "3"
 
 [target.'cfg(windows)'.dev-dependencies]

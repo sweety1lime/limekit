@@ -3,7 +3,10 @@
 #![cfg(windows)]
 
 use platform::registry::{self, RawValue};
-use themes::{CursorSet, Part, Role, active, cursor_changes, put_on, take_off};
+use platform::sounds::SoundEvent;
+use themes::{
+    CursorSet, Part, Role, active, cursor_changes, put_on, silence, sound_changes, take_off,
+};
 use tweaks::{Change, CurrentUser, Engine, Outcome, State, Target, Value};
 
 struct Sandbox {
@@ -250,4 +253,139 @@ fn themes_and_tweaks_share_the_journal_without_meeting() {
         "taking a theme off leaves the tweak on"
     );
     assert_eq!(active(&engine, Part::Cursors), None);
+}
+
+impl Sandbox {
+    fn apps_key(&self) -> String {
+        format!(r"{}\Apps", self.root)
+    }
+
+    fn event_path(&self, app: &str, event: &str) -> String {
+        format!(r"{}\{app}\{event}\.Current", self.apps_key())
+    }
+
+    /// An event as Windows keeps it: a `.Current` key that holds a sound, or
+    /// holds no value at all.
+    fn seed_event(&self, app: &str, event: &str, sound: Option<Value>) -> SoundEvent {
+        let path = self.event_path(app, event);
+        let text = match &sound {
+            Some(Value::Sz(text) | Value::ExpandSz(text)) => Some(text.clone()),
+            _ => None,
+        };
+        match &sound {
+            Some(value) => registry::write_value(&path, "", &value.to_raw()).unwrap(),
+            None => {
+                windows_registry::CURRENT_USER.create(&path).unwrap();
+            }
+        }
+        SoundEvent {
+            app: app.into(),
+            event: event.into(),
+            label: event.into(),
+            sound: text,
+        }
+    }
+
+    fn sound(&self, app: &str, event: &str) -> Option<RawValue> {
+        registry::read_value(&self.event_path(app, event), "").unwrap()
+    }
+}
+
+#[test]
+fn silencing_the_sounds_and_taking_it_off_gives_each_back_with_its_type() {
+    let sandbox = Sandbox::new("sounds");
+    let events = [
+        sandbox.seed_event(
+            ".Default",
+            "SystemAsterisk",
+            Some(Value::Sz(r"C:\Windows\media\a.wav".into())),
+        ),
+        sandbox.seed_event(
+            ".Default",
+            "Close",
+            Some(Value::ExpandSz(r"%SystemRoot%\media\b.wav".into())),
+        ),
+        sandbox.seed_event(".Default", "Open", Some(Value::Sz(String::new()))),
+        sandbox.seed_event(".Default", "SystemExit", None),
+        sandbox.seed_event(
+            ".Default",
+            "Notification.Looping.Alarm",
+            Some(Value::Sz(r"C:\Windows\media\Alarm01.wav".into())),
+        ),
+    ];
+    let names = [
+        "SystemAsterisk",
+        "Close",
+        "Open",
+        "SystemExit",
+        "Notification.Looping.Alarm",
+    ];
+    let read_all = || -> Vec<Option<RawValue>> {
+        names
+            .iter()
+            .map(|name| sandbox.sound(".Default", name))
+            .collect()
+    };
+    let before = read_all();
+    let mut engine = sandbox.engine();
+    let changes = sound_changes(&silence(&events), &sandbox.apps_key());
+
+    let applied = put_on(&mut engine, Part::Sounds, "no-sounds", &changes).unwrap();
+
+    assert_eq!(
+        applied.outcomes.len(),
+        2,
+        "only the two events with a sound are changed"
+    );
+    let now = read_all();
+    let silent = Value::Sz(String::new()).to_raw();
+    assert!(now[0].as_ref().is_some_and(|value| value.same_as(&silent)));
+    assert!(
+        now[1].as_ref().is_some_and(|value| value.same_as(&silent)),
+        "the expanding string is plain silence now"
+    );
+    assert!(
+        same(&before[2..], &now[2..]),
+        "silent, valueless and library events are untouched"
+    );
+    assert_eq!(active(&engine, Part::Sounds).as_deref(), Some("no-sounds"));
+
+    let left_alone = take_off(&mut engine, Part::Sounds, "no-sounds").unwrap();
+
+    assert!(left_alone.is_empty());
+    assert!(
+        same(&before, &read_all()),
+        "the expanding string is expanding again"
+    );
+    assert_eq!(active(&engine, Part::Sounds), None);
+}
+
+#[test]
+fn cursors_and_sounds_come_off_independently() {
+    let sandbox = Sandbox::new("parts");
+    let events = [sandbox.seed_event(".Default", "Close", Some(Value::Sz(r"C:\a.wav".into())))];
+    let mut engine = sandbox.engine();
+    let cursors = sandbox.changes("a", &[(Role::Arrow, r"C:\a\arrow.cur")]);
+    put_on(&mut engine, Part::Cursors, "a", &cursors).unwrap();
+    put_on(
+        &mut engine,
+        Part::Sounds,
+        "no-sounds",
+        &sound_changes(&silence(&events), &sandbox.apps_key()),
+    )
+    .unwrap();
+
+    take_off(&mut engine, Part::Sounds, "no-sounds").unwrap();
+
+    assert_eq!(active(&engine, Part::Sounds), None);
+    assert_eq!(active(&engine, Part::Cursors).as_deref(), Some("a"));
+    assert!(
+        sandbox.is("Arrow", r"C:\a\arrow.cur"),
+        "the cursors stayed on"
+    );
+    assert!(
+        sandbox
+            .sound(".Default", "Close")
+            .is_some_and(|value| value.same_as(&Value::Sz(r"C:\a.wav".into()).to_raw()))
+    );
 }

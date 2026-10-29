@@ -17,17 +17,22 @@ pub const PREFIX: &str = "theme.";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Part {
     Cursors,
+    Sounds,
 }
 
 impl Part {
-    fn name(self) -> &'static str {
+    /// How the journal and the screen call the part.
+    pub fn name(self) -> &'static str {
         match self {
             Part::Cursors => "cursors",
+            Part::Sounds => "sounds",
         }
     }
 
-    fn from_name(name: &str) -> Option<Part> {
-        (name == Part::Cursors.name()).then_some(Part::Cursors)
+    pub fn from_name(name: &str) -> Option<Part> {
+        [Part::Cursors, Part::Sounds]
+            .into_iter()
+            .find(|part| part.name() == name)
     }
 }
 
@@ -178,7 +183,19 @@ mod tests {
     #[test]
     fn a_tweak_name_is_not_a_theme() {
         assert_eq!(parse_journal_id("explorer.file_extensions"), None);
-        assert_eq!(parse_journal_id("theme.sounds.quiet"), None);
+        assert_eq!(parse_journal_id("theme.windows.quiet"), None);
         assert!(!is_theme_entry("explorer.file_extensions"));
+    }
+
+    #[test]
+    fn every_part_is_found_by_its_name() {
+        for part in [Part::Cursors, Part::Sounds] {
+            assert_eq!(Part::from_name(part.name()), Some(part));
+        }
+        assert_eq!(Part::from_name("wallpaper"), None);
+        assert_eq!(
+            parse_journal_id("theme.sounds.no-sounds"),
+            Some((Part::Sounds, "no-sounds"))
+        );
     }
 }
