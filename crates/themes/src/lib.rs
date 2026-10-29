@@ -7,15 +7,18 @@
 //! tweaks in the one file.
 
 mod cursors;
+mod inf;
 mod library;
+mod pack;
 mod package;
 mod sounds;
 mod switch;
 
 pub use cursors::{CursorSet, Role, expand_env, windows_sets};
 pub use library::{Library, LibraryTheme};
+pub use pack::PackImport;
 pub use package::{
-    DESCRIPTOR, EXTENSION, FORMAT, Manifest, ThemeError, has_theme_extension, is_valid_id,
+    DESCRIPTOR, EXTENSION, FORMAT, Manifest, ThemeError, UNSTATED, has_theme_extension, is_valid_id,
 };
 pub use sounds::{NO_SOUNDS, SOUNDS_KEY, SoundChoice, SoundSet, silence, sound_changes};
 pub use switch::{

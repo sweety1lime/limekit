@@ -138,8 +138,8 @@ const strings = {
   },
 
   "themes.intro": {
-    ru: "Тема меняет курсоры или звуки Windows. Свои темы можно добавить файлом .limetheme: он только попадает в список, пока вы не нажмёте «Применить». LimeKit записывает каждое изменение в журнал, поэтому его можно отменить. Права администратора не нужны.",
-    en: "A theme changes the cursors or the sounds of Windows. Add your own from a .limetheme file: it only joins the list until you press Apply. LimeKit writes every change to a journal, so it can be undone. No admin rights needed.",
+    ru: "Тема меняет курсоры или звуки Windows. Свои темы можно добавить файлом .limetheme или пакетом курсоров (папка, zip или Install.inf): он только попадает в список, пока вы не нажмёте «Применить». LimeKit записывает каждое изменение в журнал, поэтому его можно отменить. Права администратора не нужны.",
+    en: "A theme changes the cursors or the sounds of Windows. Add your own from a .limetheme file or a cursor pack (a folder, a zip or an Install.inf): it only joins the list until you press Apply. LimeKit writes every change to a journal, so it can be undone. No admin rights needed.",
   },
   "themes.loading": { ru: "Читаю темы…", en: "Reading themes…" },
   "themes.empty": { ru: "Windows не назвала ни одной темы.", en: "Windows did not list any themes." },
@@ -152,9 +152,16 @@ const strings = {
   "themes.fromLimeKit": { ru: "встроенная тема", en: "built-in theme" },
   "themes.fromPackage": { ru: "из пакета", en: "from a package" },
   "themes.add": { ru: "Добавить тему", en: "Add a theme" },
-  "themes.fileFilter": { ru: "Темы LimeKit", en: "LimeKit themes" },
+  "themes.addFolder": { ru: "Папка с курсорами", en: "Cursor folder" },
+  "themes.fileFilter": { ru: "Темы и пакеты курсоров", en: "Themes and cursor packs" },
   "themes.importing": { ru: "Добавляю тему…", en: "Adding the theme…" },
   "themes.imported": { ru: "Тема «{title}» добавлена", en: "Theme “{title}” added" },
+  "themes.importedMany": { ru: "Добавлено тем: {count}", en: "Themes added: {count}" },
+  "themes.packMissing": {
+    ru: "В пакете нет файлов, которые называет .inf: {list}.",
+    en: "The pack lacks files the .inf names: {list}.",
+  },
+  "themes.packSkipped": { ru: "Не добавлены схемы: {list}.", en: "Schemes not added: {list}." },
   "themes.remove": { ru: "Удалить", en: "Delete" },
   "themes.removeTitle": { ru: "Удалить тему", en: "Delete the theme" },
   "themes.removeQuestion": {

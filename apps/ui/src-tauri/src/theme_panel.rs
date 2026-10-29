@@ -158,6 +158,23 @@ fn no_sounds_text(lang: &str) -> (&'static str, &'static str) {
     }
 }
 
+/// Who made a theme and under what license, in `lang`. Either may be unknown,
+/// as with a cursor pack that came without.
+fn credit(author: &str, license: &str, lang: &str) -> String {
+    let en = lang == "en";
+    let (author_known, license_known) = (author != themes::UNSTATED, license != themes::UNSTATED);
+    match (author_known, license_known) {
+        (false, false) if en => "Author and license not stated.".to_owned(),
+        (false, false) => "Автор и лицензия не указаны.".to_owned(),
+        (false, true) if en => format!("Author not stated. License: {license}."),
+        (false, true) => format!("Автор не указан. Лицензия: {license}."),
+        (true, false) if en => format!("By {author}. License not stated."),
+        (true, false) => format!("Автор: {author}. Лицензия не указана."),
+        (true, true) if en => format!("By {author}. License: {license}."),
+        (true, true) => format!("Автор: {author}. Лицензия: {license}."),
+    }
+}
+
 /// A theme from a package, with the sounds as this Windows has them.
 fn from_package(theme: &LibraryTheme, events: &[SoundEvent], lang: &str) -> Theme {
     let mut parts = Vec::new();
@@ -170,18 +187,10 @@ fn from_package(theme: &LibraryTheme, events: &[SoundEvent], lang: &str) -> Them
         skipped = left_out;
     }
     let manifest = &theme.manifest;
-    let description = if lang == "en" {
-        format!("By {}. License: {}.", manifest.author, manifest.license)
-    } else {
-        format!(
-            "Автор: {}. Лицензия: {}.",
-            manifest.author, manifest.license
-        )
-    };
     Theme {
         id: manifest.id.clone(),
         title: manifest.name.clone(),
-        description,
+        description: credit(&manifest.author, &manifest.license, lang),
         source: Source::Package,
         parts,
         skipped,
@@ -620,11 +629,22 @@ fn switch(
     }
 }
 
-/// What an import added.
+/// A theme an import added.
 #[derive(Clone, Serialize)]
 pub struct Imported {
     pub id: String,
     pub name: String,
+}
+
+/// What importing one path came to: the themes it added, and what a cursor pack
+/// left out, for the window to say.
+#[derive(Clone, Default, Serialize)]
+pub struct ImportResult {
+    pub themes: Vec<Imported>,
+    /// Files a cursor pack names that it does not have.
+    pub missing: Vec<String>,
+    /// Schemes of a cursor pack that could not be added, each with the reason.
+    pub skipped: Vec<String>,
 }
 
 /// A refusal in words a person can act on. The ones people meet most are said
@@ -640,31 +660,62 @@ fn describe(error: &ThemeError) -> String {
             format!("Тема сделана в формате {format}, который эта версия LimeKit не читает.")
         }
         ThemeError::AlreadyInLibrary(id) => format!("Тема «{id}» уже в библиотеке."),
+        ThemeError::NotAPack => {
+            "Это не пакет курсоров: нужна папка, zip-архив или файл .inf.".to_owned()
+        }
+        ThemeError::NoInf => {
+            "В пакете нет файла .inf, по которому видно, какой курсор для чего.".to_owned()
+        }
+        ThemeError::NoScheme => "В файле .inf нет схемы курсоров.".to_owned(),
+        ThemeError::NoCursors => "Ни одного курсора из файла .inf в пакете нет.".to_owned(),
+        ThemeError::TooManySchemes(most) => {
+            format!("В пакете больше {most} схем курсоров: это слишком много за один раз.")
+        }
         other => other.to_string(),
     }
 }
 
-/// Adds the package at `path` to the library. The first import also registers
-/// the `.limetheme` association, so a double click finds the program.
-pub fn import_path(path: &Path) -> Result<Imported, String> {
+/// Adds the package or the cursor pack at `path` to the library. An import also
+/// registers the `.limetheme` association, so a double click finds the program.
+pub fn import_path(path: &Path) -> Result<ImportResult, String> {
     // The data directory still looks empty while the LimeWall one has not been
     // moved over. Creating the themes folder now would make the half-made
     // directory look real, and the old data would never be brought over.
     if platform::appdata::migration_pending() {
         return Err(crate::MIGRATION_PENDING.to_owned());
     }
-    let theme = library()?.import(path).map_err(|error| describe(&error))?;
+    let library = library()?;
+    let result = if themes::has_theme_extension(path) {
+        let theme = library.import(path).map_err(|error| describe(&error))?;
+        ImportResult {
+            themes: vec![imported(&theme)],
+            ..ImportResult::default()
+        }
+    } else {
+        let pack = library
+            .import_pack(path)
+            .map_err(|error| describe(&error))?;
+        ImportResult {
+            themes: pack.themes.iter().map(imported).collect(),
+            missing: pack.missing,
+            skipped: pack.skipped,
+        }
+    };
     if let Err(error) = crate::assoc::register_theme() {
         eprintln!("theme association not registered: {error}");
     }
-    Ok(Imported {
+    Ok(result)
+}
+
+fn imported(theme: &LibraryTheme) -> Imported {
+    Imported {
         id: theme.id().to_owned(),
         name: theme.manifest.name.clone(),
-    })
+    }
 }
 
 #[tauri::command]
-pub async fn theme_import(path: String) -> Result<Imported, String> {
+pub async fn theme_import(path: String) -> Result<ImportResult, String> {
     tauri::async_runtime::spawn_blocking(move || import_path(Path::new(&path)))
         .await
         .map_err(|error| error.to_string())?
@@ -992,6 +1043,39 @@ mod tests {
             (line.part, line.role.as_str(), line.label),
             ("cursors", "Arrow", None)
         );
+    }
+
+    #[test]
+    fn what_is_not_known_of_a_theme_is_said_in_the_words_of_the_language() {
+        assert_eq!(
+            credit("A. Author", "CC-BY-4.0", "ru"),
+            "Автор: A. Author. Лицензия: CC-BY-4.0."
+        );
+        assert_eq!(
+            credit("A. Author", "CC-BY-4.0", "en"),
+            "By A. Author. License: CC-BY-4.0."
+        );
+        assert_eq!(
+            credit(themes::UNSTATED, themes::UNSTATED, "ru"),
+            "Автор и лицензия не указаны."
+        );
+        assert_eq!(
+            credit(themes::UNSTATED, "MIT", "en"),
+            "Author not stated. License: MIT."
+        );
+        assert_eq!(
+            credit("Me", themes::UNSTATED, "ru"),
+            "Автор: Me. Лицензия не указана."
+        );
+    }
+
+    #[test]
+    fn the_refusals_for_a_cursor_pack_are_said_in_russian_too() {
+        assert!(describe(&ThemeError::NotAPack).contains("папка, zip-архив или файл .inf"));
+        assert!(describe(&ThemeError::NoInf).contains("нет файла .inf"));
+        assert!(describe(&ThemeError::NoScheme).contains("нет схемы курсоров"));
+        assert!(describe(&ThemeError::NoCursors).contains("Ни одного курсора"));
+        assert!(describe(&ThemeError::TooManySchemes(40)).contains("больше 40"));
     }
 
     #[test]

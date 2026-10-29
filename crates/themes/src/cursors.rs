@@ -152,7 +152,7 @@ fn windows_id(scheme: &str) -> String {
     }
 }
 
-fn slug(name: &str) -> String {
+pub(crate) fn slug(name: &str) -> String {
     let mut slug = String::new();
     for ch in name.chars() {
         if ch.is_ascii_alphanumeric() {

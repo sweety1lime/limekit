@@ -141,6 +141,7 @@ pub mod resources;
 pub mod shell;
 pub mod sounds;
 pub mod system;
+pub mod text;
 pub mod tray;
 pub mod vulkan;
 pub mod watcher;

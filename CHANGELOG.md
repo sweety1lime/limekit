@@ -29,6 +29,16 @@
   says it is a wallpaper, and the `.limetheme` association is written only
   after the first import and removed by "Убрать LimeKit из системы".
 
+- **Cursor packs.** The way cursors are usually shared, a folder, a zip or an
+  `Install.inf` with the `.cur` and `.ani` files beside it, can be added on the
+  "Темы" tab with "Добавить тему", "Папка с курсорами" or by dropping it on the
+  window. The INF is read for which file goes with which role and is never run:
+  installing by it would copy files into `C:\Windows` and ask for an
+  administrator. Each scheme in it becomes a theme, with the cursor files it
+  names, after the same checks as a `.limetheme`. Files the pack lacks are
+  named in the notice, and a pack's author and license, which it does not
+  carry, show as not stated.
+
 ### Changed
 
 - The "Твики" button in the title bar is now "Windows": tweaks and themes sit
@@ -42,6 +52,8 @@
 - New crate `crates/themes`; `platform::cursors` reads the schemes Windows
   ships, and `platform::shell` can reload cursors and resolve `@file,-id`
   strings. The design is in `docs/research/themes.md`.
+- `platform::text::from_ansi` decodes text in the system code page, for `.inf`
+  files that carry no byte order mark.
 - `wpk::list_members` and `wpk::read_member` give another zip format the same
   name-checked, size-capped reading that wallpaper packages get; the theme
   library imports a package through them, file by file, instead of unpacking it.

@@ -16,8 +16,12 @@ use crate::sounds::{SoundChoice, SoundSet};
 /// Where a package is written before it is moved into place.
 const STAGING: &str = ".staging";
 
+/// Gives the bytes of one file of what is being imported, named as the theme
+/// names it, at most `limit` of them.
+pub(crate) type Reader<'a> = dyn Fn(&str, u64) -> Result<Vec<u8>, ThemeError> + 'a;
+
 pub struct Library {
-    root: PathBuf,
+    pub(crate) root: PathBuf,
 }
 
 /// A theme that is in the library.
@@ -84,13 +88,33 @@ impl Library {
         }
         let descriptor = wpk::read_member(package, DESCRIPTOR, MAX_DESCRIPTOR_BYTES)?;
         let manifest = parse(&descriptor)?;
-        let files = manifest.files();
-        if let Some((missing, _)) = files.iter().find(|(name, _)| !has(name)) {
+        if let Some((missing, _)) = manifest.files().iter().find(|(name, _)| !has(name)) {
             return Err(ThemeError::BadFile {
                 name: missing.clone(),
                 why: "named in the descriptor, but not in the package".into(),
             });
         }
+        self.install(manifest, &descriptor, &|name, limit| {
+            Ok(wpk::read_member(package, name, limit)?)
+        })
+    }
+
+    /// Whether no theme has `id` yet.
+    pub(crate) fn is_free(&self, id: &str) -> bool {
+        !self.root.join(id).exists()
+    }
+
+    /// Puts the theme `manifest` describes into the library, with the files it
+    /// names as `read` gives them. Each is checked against its kind and the caps
+    /// before it is written, to a staging folder that is moved into place only
+    /// when every file has passed, so a refusal leaves nothing behind.
+    pub(crate) fn install(
+        &self,
+        manifest: Manifest,
+        descriptor: &[u8],
+        read: &Reader<'_>,
+    ) -> Result<LibraryTheme, ThemeError> {
+        let files = manifest.files();
         let target = self.root.join(&manifest.id);
         if target.exists() {
             return Err(ThemeError::AlreadyInLibrary(manifest.id));
@@ -102,7 +126,7 @@ impl Library {
                 .join(format!("{}-{}", manifest.id, std::process::id()));
         let _ = std::fs::remove_dir_all(&staging);
         std::fs::create_dir_all(&staging)?;
-        let staged = stage(package, &staging, &descriptor, &files);
+        let staged = stage(read, &staging, descriptor, &files);
         let placed = staged.and_then(|()| std::fs::rename(&staging, &target).map_err(Into::into));
         // The staging folder is gone after a rename; after a failure it holds
         // the debris. Its parent goes too when nothing else is being staged.
@@ -128,19 +152,19 @@ impl Library {
 /// Writes the descriptor and each file the descriptor names into `staging`,
 /// after checking the file against its kind and the sizes against the caps.
 fn stage(
-    package: &Path,
+    read: &Reader<'_>,
     staging: &Path,
     descriptor: &[u8],
     files: &[(String, FileKind)],
 ) -> Result<(), ThemeError> {
     let mut total = descriptor.len() as u64;
     for (name, kind) in files {
-        let bytes = wpk::read_member(package, name, kind.cap()).map_err(|error| match error {
-            wpk::WpkError::TooLarge { limit, .. } => ThemeError::BadFile {
+        let bytes = read(name, kind.cap()).map_err(|error| match error {
+            ThemeError::Package(wpk::WpkError::TooLarge { limit, .. }) => ThemeError::BadFile {
                 name: name.clone(),
                 why: format!("a {} may be {limit} bytes at most", kind.describe()),
             },
-            other => other.into(),
+            other => other,
         })?;
         if !kind.matches(&bytes) {
             return Err(ThemeError::BadFile {

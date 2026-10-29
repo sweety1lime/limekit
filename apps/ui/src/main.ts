@@ -11,6 +11,8 @@ const PACK_EXT = "limekit";
 const PACK_EXTS = ["limekit", "wpk"] as const;
 // Theme packages are their own kind of file, mirroring themes::EXTENSION.
 const THEME_EXT = "limetheme";
+// A cursor pack comes as a zip or as the Install.inf in a folder of cursors.
+const CURSOR_PACK_EXTS = ["inf", "zip"];
 
 // ---------------------------------------------------------------------------
 // types (mirror the Tauri backend; see src-tauri/src/lib.rs & crates/ipc)
@@ -209,6 +211,15 @@ interface ThemePreview {
 interface ImportedTheme {
   id: string;
   name: string;
+}
+
+// What importing one path came to.
+interface ImportResult {
+  themes: ImportedTheme[];
+  // Files a cursor pack names that it does not have.
+  missing: string[];
+  // Schemes of a cursor pack that could not be added, each with the reason.
+  skipped: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -1186,7 +1197,16 @@ function buildThemesBody(): HTMLElement {
         "div",
         { class: "themes-toolbar" },
         h("p", { class: "tweaks-intro" }, t("themes.intro")),
-        primarySmall(t("themes.add"), icons.plus, () => void importThemeDialog()),
+        h(
+          "div",
+          { class: "themes-toolbar-actions" },
+          primarySmall(t("themes.add"), icons.plus, () => void importThemeDialog()),
+          h(
+            "button",
+            { class: "btn-ghost small", type: "button", onClick: () => void importThemeFolderDialog() },
+            t("themes.addFolder"),
+          ),
+        ),
       ),
     );
     if (view.drift.length) {
@@ -1405,26 +1425,49 @@ async function removeTheme(theme: ThemeView) {
 async function importThemeDialog() {
   const picked = await open({
     multiple: true,
-    filters: [{ name: t("themes.fileFilter"), extensions: [THEME_EXT] }],
+    filters: [{ name: t("themes.fileFilter"), extensions: [THEME_EXT, ...CURSOR_PACK_EXTS] }],
   });
   if (Array.isArray(picked)) await importThemes(picked);
   else if (typeof picked === "string") await importThemes([picked]);
 }
 
-// Adds theme packages to the library and shows them. Themes are data and
-// change nothing in Windows until they are applied, so there is nothing to
-// confirm here.
+async function importThemeFolderDialog() {
+  const picked = await open({ directory: true });
+  if (typeof picked === "string") await importThemes([picked]);
+}
+
+// Whether a dropped or picked path goes to the theme library: a theme package,
+// a cursor pack's zip or INF, or a folder, which is no wallpaper.
+async function isThemePath(path: string): Promise<boolean> {
+  if (new RegExp(`\\.(${[THEME_EXT, ...CURSOR_PACK_EXTS].join("|")})$`, "i").test(path)) return true;
+  return await invoke<boolean>("is_folder", { path });
+}
+
+// Adds theme packages and cursor packs to the library and shows them. Themes
+// are data and change nothing in Windows until they are applied, so there is
+// nothing to confirm here.
 async function importThemes(paths: string[]) {
   for (const path of paths) {
     report(t("themes.importing"));
     try {
-      const imported = await call<ImportedTheme>("theme_import", { path });
-      report(t("themes.imported", { title: imported.name }));
+      reportImport(await call<ImportResult>("theme_import", { path }));
     } catch {
       // error text is already shown by call()
     }
   }
   openWindows("themes");
+}
+
+// What an import added, and what a cursor pack left out, in one notice.
+function reportImport(result: ImportResult) {
+  const added =
+    result.themes.length === 1
+      ? t("themes.imported", { title: result.themes[0].name })
+      : t("themes.importedMany", { count: String(result.themes.length) });
+  const notes: string[] = [];
+  if (result.missing.length) notes.push(t("themes.packMissing", { list: result.missing.join(", ") }));
+  if (result.skipped.length) notes.push(t("themes.packSkipped", { list: result.skipped.join("; ") }));
+  report(notes.length ? [`${added}.`, ...notes].join(" ") : added, notes.length > 0);
 }
 
 // The way into tweaks and themes from the main screen, so nobody has to guess
@@ -2471,11 +2514,16 @@ async function confirmCodeWallpaper(name: string, kind: string): Promise<boolean
 }
 
 async function importPaths(paths: string[]) {
-  // Theme packages are not wallpapers: they go to the theme library.
-  const isTheme = (path: string) => path.toLowerCase().endsWith(`.${THEME_EXT}`);
-  const themePaths = paths.filter(isTheme);
+  // Theme packages and cursor packs are not wallpapers: they go to the theme
+  // library.
+  const themePaths: string[] = [];
+  const wallpaperPaths: string[] = [];
+  for (const path of paths) {
+    if (await isThemePath(path)) themePaths.push(path);
+    else wallpaperPaths.push(path);
+  }
   if (themePaths.length) await importThemes(themePaths);
-  paths = paths.filter((path) => !isTheme(path));
+  paths = wallpaperPaths;
   if (paths.length === 0) return;
   for (const path of paths) {
     const lower = path.toLowerCase();
@@ -2582,8 +2630,8 @@ window.addEventListener("DOMContentLoaded", () => {
   // pings us to show the result.
   void listen("library-changed", () => void refreshLibrary());
   // A double-clicked theme package is imported in the backend the same way.
-  void listen<ImportedTheme>("themes-changed", (event) => {
-    report(t("themes.imported", { title: event.payload.name }));
+  void listen<ImportResult>("themes-changed", (event) => {
+    reportImport(event.payload);
     openWindows("themes");
   });
   void listen<string>("themes-import-error", (event) => report(event.payload, true));

@@ -232,6 +232,27 @@ you may use. Save both registry keys as above first.
    the cursors and sounds come back, and the `.limetheme` key is gone with the
    other associations.
 
+For a cursor pack, take a real one: a folder with an `Install.inf` and its
+`.cur` and `.ani` files, from an open-source pack such as Capitaine, Vimix or
+Breeze, and a zip of the same folder. Save the cursors registry as above first.
+
+1. Press **Папка с курсорами** and pick the folder. A card appears under **Мои
+   темы** with the scheme's name and a line saying that the author and the
+   license are not stated. Nothing in Windows has changed.
+2. Pick the zip with **Добавить тему**: the same theme comes again under an id
+   with `-2` on it. Drag the folder, the `Install.inf` and the zip onto the
+   window one after another: each adds a theme and none is taken for a
+   wallpaper.
+3. Apply one. The confirmation lists the cursors, one line each, with file
+   names; the pointer changes at once, and an animated one (busy, working in
+   the background) plays. **Вернуть** gives back the registry values and the
+   cursors.
+4. Take out of the folder one file the INF names and add the folder again. The
+   theme comes with the other roles, and the notice names the missing file.
+5. A zip with no `.inf` in it, an `.inf` that registers no scheme, a `.cur`
+   that is really a text file: each is refused with a reason, and nothing is
+   left in `%APPDATA%\LimeKit\themes`, `.staging` included.
+
 ## Politeness
 
 See `docs/research/politeness.md` for the rules.

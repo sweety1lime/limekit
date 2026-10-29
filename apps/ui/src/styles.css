@@ -1607,6 +1607,13 @@ body.dragging .dropzone {
   flex: 1;
 }
 
+.themes-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .themes-toolbar .btn-primary {
   flex-shrink: 0;
 }

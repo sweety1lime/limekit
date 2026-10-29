@@ -332,6 +332,13 @@ async fn import_bundled_sample() -> Result<library::LibraryItem, String> {
     .await
 }
 
+/// Whether `path` is a folder, which the window cannot tell from the path it is
+/// handed when something is dropped on it.
+#[tauri::command]
+fn is_folder(path: String) -> bool {
+    Path::new(&path).is_dir()
+}
+
 /// Package files among command line arguments (double-click / "open with").
 fn packages_in(args: impl Iterator<Item = std::ffi::OsString>) -> Vec<std::path::PathBuf> {
     args.skip(1)
@@ -360,11 +367,9 @@ fn import_theme_packages(app: tauri::AppHandle, packages: Vec<std::path::PathBuf
         for package in packages {
             match theme_panel::import_path(&package) {
                 Ok(imported) => {
-                    println!(
-                        "imported theme {} from {}",
-                        imported.name,
-                        package.display()
-                    );
+                    for theme in &imported.themes {
+                        println!("imported theme {} from {}", theme.name, package.display());
+                    }
                     let _ = app.emit("themes-changed", imported);
                 }
                 Err(message) => {
@@ -529,6 +534,7 @@ pub fn run() {
             library_preview,
             library_export,
             inspect_package,
+            is_folder,
             import_bundled_sample,
             diagnostics::run_diagnostics,
             set_playlist,

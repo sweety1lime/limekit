@@ -19,6 +19,11 @@ pub const DESCRIPTOR: &str = "theme.json";
 /// The format this version reads.
 pub const FORMAT: u32 = 1;
 
+/// What the author and the license of a theme say when nobody knows them, as
+/// with a cursor pack that came without. The descriptor needs both, and the
+/// screen puts this in words of its language.
+pub const UNSTATED: &str = "unstated";
+
 /// Whether `path` looks like a theme package.
 pub fn has_theme_extension(path: &Path) -> bool {
     path.extension()
@@ -56,6 +61,16 @@ pub enum ThemeError {
     AlreadyInLibrary(String),
     #[error("no theme {0:?} in the library")]
     NotInLibrary(String),
+    #[error("this is not a cursor pack: it should be a folder, a zip or an .inf file")]
+    NotAPack,
+    #[error("the pack has no .inf file")]
+    NoInf,
+    #[error("the .inf registers no cursor scheme")]
+    NoScheme,
+    #[error("none of the cursors the .inf names is in the pack")]
+    NoCursors,
+    #[error("the pack holds more than {0} cursor schemes")]
+    TooManySchemes(usize),
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
@@ -155,7 +170,7 @@ pub fn is_valid_id(id: &str) -> bool {
 }
 
 /// The ids of the themes LimeKit builds itself.
-fn is_reserved(id: &str) -> bool {
+pub(crate) fn is_reserved(id: &str) -> bool {
     id.starts_with("windows-") || id == NO_SOUNDS
 }
 
