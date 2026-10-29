@@ -2014,10 +2014,14 @@ name = "themes"
 version = "0.3.1"
 dependencies = [
  "platform",
+ "serde",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.18",
  "tweaks",
  "windows-registry",
+ "wpk",
+ "zip",
 ]
 
 [[package]]

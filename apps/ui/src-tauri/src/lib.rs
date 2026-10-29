@@ -306,6 +306,10 @@ fn bundled_sample_entry() -> Option<PathBuf> {
     candidates.into_iter().find(|path| path.is_file())
 }
 
+/// What an action that would create the data directory says while the LimeWall
+/// one has not been moved over yet.
+const MIGRATION_PENDING: &str = "библиотека LimeWall ещё не перенесена: закройте старую версию через трей и перезапустите LimeKit";
+
 /// Imports the bundled first-party sample wallpaper so a fresh library is not
 /// empty. It is our own code shipped inside the install, so it skips the
 /// code-wallpaper consent that foreign `.html`/`.wpk` imports require.
@@ -316,8 +320,7 @@ async fn import_bundled_sample() -> Result<library::LibraryItem, String> {
         // Seeding it now would make the half-created directory look real, and
         // the old library would never be brought over.
         if platform::appdata::migration_pending() {
-            return Err("библиотека LimeWall ещё не перенесена: закройте старую                         версию через трей и перезапустите LimeKit"
-                .to_owned());
+            return Err(MIGRATION_PENDING.to_owned());
         }
         let entry = bundled_sample_entry().ok_or("bundled sample wallpaper not found")?;
         library::Library::default_location()?.import_web_folder_meta(
@@ -335,6 +338,42 @@ fn packages_in(args: impl Iterator<Item = std::ffi::OsString>) -> Vec<std::path:
         .map(std::path::PathBuf::from)
         .filter(|path| wpk::has_package_extension(path) && path.is_file())
         .collect()
+}
+
+/// Theme packages among command line arguments (double-click / "open with").
+fn theme_packages_in(args: impl Iterator<Item = std::ffi::OsString>) -> Vec<std::path::PathBuf> {
+    args.skip(1)
+        .map(std::path::PathBuf::from)
+        .filter(|path| themes::has_theme_extension(path) && path.is_file())
+        .collect()
+}
+
+/// Imports theme packages off the UI thread and tells the panel what came of
+/// it. A theme is data, so unlike a code wallpaper it needs no consent: nothing
+/// changes in Windows until the theme is applied.
+fn import_theme_packages(app: tauri::AppHandle, packages: Vec<std::path::PathBuf>) {
+    use tauri::Emitter;
+    if packages.is_empty() {
+        return;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        for package in packages {
+            match theme_panel::import_path(&package) {
+                Ok(imported) => {
+                    println!(
+                        "imported theme {} from {}",
+                        imported.name,
+                        package.display()
+                    );
+                    let _ = app.emit("themes-changed", imported);
+                }
+                Err(message) => {
+                    eprintln!("failed to import {}: {message}", package.display());
+                    let _ = app.emit("themes-import-error", message);
+                }
+            }
+        }
+    });
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -461,10 +500,10 @@ pub fn run() {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
-            import_packages(
-                app.clone(),
-                packages_in(argv.into_iter().map(std::ffi::OsString::from)),
-            );
+            let argv: Vec<std::ffi::OsString> =
+                argv.into_iter().map(std::ffi::OsString::from).collect();
+            import_packages(app.clone(), packages_in(argv.iter().cloned()));
+            import_theme_packages(app.clone(), theme_packages_in(argv.into_iter()));
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -509,6 +548,8 @@ pub fn run() {
             theme_panel::theme_cursor_image,
             theme_panel::theme_preview,
             theme_panel::theme_switch,
+            theme_panel::theme_import,
+            theme_panel::theme_remove,
         ])
         .setup(|app| {
             use tauri::Manager;
@@ -522,7 +563,14 @@ pub fn run() {
             if let Err(error) = assoc::register() {
                 eprintln!("wpk association not registered: {error}");
             }
+            // The theme association exists only once a theme has been imported.
+            if theme_panel::library_exists()
+                && let Err(error) = assoc::register_theme()
+            {
+                eprintln!("theme association not registered: {error}");
+            }
             import_packages(app.handle().clone(), packages_in(std::env::args_os()));
+            import_theme_packages(app.handle().clone(), theme_packages_in(std::env::args_os()));
             Ok(())
         })
         .run(tauri::generate_context!())

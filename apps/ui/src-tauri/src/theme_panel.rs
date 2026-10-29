@@ -1,14 +1,17 @@
-//! The themes screen's backend: the cursor sets Windows ships and a set that
-//! silences the system sounds, each with its standing on this Windows, and
-//! putting them on and taking them off through the tweak journal.
+//! The themes screen's backend: the cursor sets Windows ships, a set that
+//! silences the system sounds, and the themes imported from packages, each
+//! with its standing on this Windows; putting them on and taking them off
+//! through the tweak journal; and the library the packages are kept in.
 //!
 //! Themes go through the same engine as tweaks (`tweak_panel::TweakEngine`),
 //! so there is one journal and one writer: this window process.
 
+use std::path::Path;
+
 use base64::Engine as _;
 use platform::sounds::SoundEvent;
 use serde::Serialize;
-use themes::{CursorSet, Part, Role, SoundSet, SwitchError};
+use themes::{CursorSet, LibraryTheme, Part, Role, SoundSet, SwitchError, ThemeError};
 use tweaks::{
     Availability, Change, CurrentUser, Engine, EngineError, Outcome, State, Target, Value,
 };
@@ -24,44 +27,82 @@ const CARD_ROLES: [Role; 4] = [Role::Arrow, Role::Hand, Role::Help, Role::SizeAl
 /// A cursor file bigger than this is not drawn on a card.
 const MAX_CARD_BYTES: u64 = 512 * 1024;
 
-/// What a theme gives the user.
+/// The registry keys themes write under: the real ones, or private ones in
+/// tests.
+struct Keys<'a> {
+    cursors: &'a str,
+    sounds: &'a str,
+}
+
+const REAL: Keys<'static> = Keys {
+    cursors: themes::CURSORS_KEY,
+    sounds: themes::SOUNDS_KEY,
+};
+
+/// One part of a theme.
 enum Content {
     Cursors(CursorSet),
     Sounds(SoundSet),
 }
 
-/// Where a theme comes from, for the chip on its card.
-#[derive(Debug, Clone, Copy, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum Source {
-    Windows,
-    LimeKit,
-}
-
-/// A theme as the screen lists it.
-struct Theme {
-    id: String,
-    title: String,
-    description: String,
-    source: Source,
-    content: Content,
-}
-
-impl Theme {
+impl Content {
     fn part(&self) -> Part {
-        match self.content {
+        match self {
             Content::Cursors(_) => Part::Cursors,
             Content::Sounds(_) => Part::Sounds,
         }
     }
 
-    /// The registry changes that put the theme on, under the real keys.
-    fn changes(&self) -> Vec<Change> {
-        match &self.content {
-            Content::Cursors(set) => themes::cursor_changes(set, themes::CURSORS_KEY),
-            Content::Sounds(set) => themes::sound_changes(set, themes::SOUNDS_KEY),
+    fn changes(&self, keys: &Keys) -> Vec<Change> {
+        match self {
+            Content::Cursors(set) => themes::cursor_changes(set, keys.cursors),
+            Content::Sounds(set) => themes::sound_changes(set, keys.sounds),
         }
     }
+}
+
+/// Where a theme comes from, for the chip on its card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Source {
+    Windows,
+    LimeKit,
+    Package,
+}
+
+/// A theme as the screen lists it: one or two parts that go on and off
+/// together.
+struct Theme {
+    id: String,
+    title: String,
+    description: String,
+    source: Source,
+    parts: Vec<Content>,
+    /// Events a package sets that this Windows does not have, as
+    /// `program/event`.
+    skipped: Vec<String>,
+}
+
+impl Theme {
+    fn changes(&self, part: Part, keys: &Keys) -> Vec<Change> {
+        self.parts
+            .iter()
+            .filter(|content| content.part() == part)
+            .flat_map(|content| content.changes(keys))
+            .collect()
+    }
+}
+
+/// The library of imported packages, in the per-user data directory.
+fn library() -> Result<themes::Library, String> {
+    let data = platform::appdata::user_dir().ok_or("no per-user data directory on this system")?;
+    Ok(themes::Library::at(data.join("themes")))
+}
+
+/// Whether a theme has been imported before, so the `.limetheme` association
+/// is due. A fresh install, and anyone who only plays wallpapers, has none.
+pub fn library_exists() -> bool {
+    library().is_ok_and(|library| library.exists())
 }
 
 /// The cursor sets Windows ships, named in the current language.
@@ -71,6 +112,14 @@ fn windows_sets() -> Vec<CursorSet> {
         |path| themes::expand_env(path, |name| std::env::var(name).ok()),
         platform::shell::indirect_string,
     )
+}
+
+/// The cursor set of a theme, wherever it comes from.
+fn cursor_set(id: &str) -> Option<CursorSet> {
+    windows_sets()
+        .into_iter()
+        .find(|set| set.id == id)
+        .or_else(|| library().ok()?.get(id)?.cursor_set())
 }
 
 /// What the set that silences the sounds is called and says, in `lang`.
@@ -88,9 +137,39 @@ fn no_sounds_text(lang: &str) -> (&'static str, &'static str) {
     }
 }
 
+/// A theme from a package, with the sounds as this Windows has them.
+fn from_package(theme: &LibraryTheme, events: &[SoundEvent], lang: &str) -> Theme {
+    let mut parts = Vec::new();
+    if let Some(set) = theme.cursor_set() {
+        parts.push(Content::Cursors(set));
+    }
+    let mut skipped = Vec::new();
+    if let Some((set, left_out)) = theme.sound_set(events) {
+        parts.push(Content::Sounds(set));
+        skipped = left_out;
+    }
+    let manifest = &theme.manifest;
+    let description = if lang == "en" {
+        format!("By {}. License: {}.", manifest.author, manifest.license)
+    } else {
+        format!(
+            "Автор: {}. Лицензия: {}.",
+            manifest.author, manifest.license
+        )
+    };
+    Theme {
+        id: manifest.id.clone(),
+        title: manifest.name.clone(),
+        description,
+        source: Source::Package,
+        parts,
+        skipped,
+    }
+}
+
 /// Every theme, with the sounds as they are now: the set that silences them
 /// names the events that still make one.
-fn all(lang: &str, events: &[SoundEvent]) -> Vec<Theme> {
+fn all(lang: &str, events: &[SoundEvent], packages: &[LibraryTheme]) -> Vec<Theme> {
     let mut all: Vec<Theme> = windows_sets()
         .into_iter()
         .map(|set| Theme {
@@ -98,7 +177,8 @@ fn all(lang: &str, events: &[SoundEvent]) -> Vec<Theme> {
             title: set.name.clone(),
             description: String::new(),
             source: Source::Windows,
-            content: Content::Cursors(set),
+            parts: vec![Content::Cursors(set)],
+            skipped: Vec::new(),
         })
         .collect();
     let (title, description) = no_sounds_text(lang);
@@ -107,20 +187,27 @@ fn all(lang: &str, events: &[SoundEvent]) -> Vec<Theme> {
         title: title.to_owned(),
         description: description.to_owned(),
         source: Source::LimeKit,
-        content: Content::Sounds(themes::silence(events)),
+        parts: vec![Content::Sounds(themes::silence(events))],
+        skipped: Vec::new(),
     });
+    all.extend(
+        packages
+            .iter()
+            .map(|theme| from_package(theme, events, lang)),
+    );
     all
 }
 
-fn part_named(name: &str) -> Result<Part, String> {
-    Part::from_name(name).ok_or_else(|| format!("no theme part {name:?}"))
+/// The themes in the library; an unreadable library has none.
+fn packages() -> Vec<LibraryTheme> {
+    library().map(|library| library.list()).unwrap_or_default()
 }
 
-fn find(themes: Vec<Theme>, part: Part, id: &str) -> Result<Theme, String> {
+fn find<'a>(themes: &'a [Theme], id: &str) -> Result<&'a Theme, String> {
     themes
-        .into_iter()
-        .find(|theme| theme.part() == part && theme.id == id)
-        .ok_or_else(|| format!("no {} theme {id:?}", part.name()))
+        .iter()
+        .find(|theme| theme.id == id)
+        .ok_or_else(|| format!("no theme {id:?}"))
 }
 
 /// A `.cur` file is a still picture; an animated `.ani` is not drawn.
@@ -134,29 +221,25 @@ pub struct ThemesView {
     windows: String,
     themes: Vec<ThemeView>,
     /// Themes whose values something changed after LimeKit set them.
-    drift: Vec<DriftView>,
+    drift: Vec<String>,
 }
 
 #[derive(Serialize)]
 pub struct ThemeView {
-    /// "cursors" or "sounds".
-    part: &'static str,
     id: String,
     title: String,
     description: String,
     source: Source,
+    /// "cursors" and "sounds", whichever the theme has.
+    parts: Vec<&'static str>,
     availability: AvailabilityView,
     /// LimeKit has this theme in effect, so taking it off gives back what was
     /// there before LimeKit.
     applied: bool,
     /// Roles the card can show a picture of, by registry name.
     pictures: Vec<&'static str>,
-}
-
-#[derive(Serialize)]
-pub struct DriftView {
-    part: &'static str,
-    id: String,
+    /// A theme from a package can be deleted from the library.
+    removable: bool,
 }
 
 #[tauri::command]
@@ -166,44 +249,64 @@ pub async fn themes_view(
 ) -> Result<ThemesView, String> {
     let version = platform::system::windows_version();
     let requirements = themes::requirements();
-    let sets = all(&lang, &platform::sounds::events());
+    let sets = all(&lang, &platform::sounds::events(), &packages());
     with_engine(&state, |engine| {
         let views = sets
             .iter()
             .map(|theme| {
-                let part = theme.part();
+                let active =
+                    |part: Part| themes::active(engine, part).as_deref() == Some(&theme.id);
+                // A part with nothing to change, say a package's sounds that
+                // this Windows has no event for, does not stand in the way.
+                let relevant: Vec<Part> = theme
+                    .parts
+                    .iter()
+                    .map(Content::part)
+                    .filter(|part| active(*part) || !theme.changes(*part, &REAL).is_empty())
+                    .collect();
                 ThemeView {
-                    part: part.name(),
                     id: theme.id.clone(),
                     title: theme.title.clone(),
                     description: theme.description.clone(),
                     source: theme.source,
+                    parts: theme
+                        .parts
+                        .iter()
+                        .map(|content| content.part().name())
+                        .collect(),
                     availability: version
                         .as_ref()
                         .map_or(Availability::Unverified, |version| {
                             requirements.availability(version)
                         })
                         .into(),
-                    applied: themes::active(engine, part).as_deref() == Some(theme.id.as_str()),
-                    pictures: match &theme.content {
-                        Content::Cursors(set) => CARD_ROLES
-                            .iter()
-                            .filter(|role| set.path(**role).is_some_and(is_picture))
-                            .map(|role| role.name())
-                            .collect(),
-                        Content::Sounds(_) => Vec::new(),
-                    },
+                    applied: !relevant.is_empty() && relevant.iter().all(|part| active(*part)),
+                    pictures: theme
+                        .parts
+                        .iter()
+                        .filter_map(|content| match content {
+                            Content::Cursors(set) => Some(set),
+                            Content::Sounds(_) => None,
+                        })
+                        .flat_map(|set| {
+                            CARD_ROLES
+                                .iter()
+                                .filter(|role| set.path(**role).is_some_and(is_picture))
+                                .map(|role| role.name())
+                        })
+                        .collect(),
+                    removable: theme.source == Source::Package,
                 }
             })
             .collect();
-        let mut drift: Vec<(Part, String)> = Vec::new();
+        let mut drift: Vec<String> = Vec::new();
         for item in engine.drift().map_err(|error| error.to_string())? {
             let found = engine
                 .entries()
                 .iter()
                 .find(|entry| entry.id == item.entry)
                 .and_then(|entry| themes::parse_journal_id(&entry.tweak))
-                .map(|(part, theme)| (part, theme.to_owned()));
+                .map(|(_, theme)| theme.to_owned());
             if let Some(found) = found
                 && !drift.contains(&found)
             {
@@ -213,13 +316,7 @@ pub async fn themes_view(
         Ok(ThemesView {
             windows: version.as_ref().map(describe_windows).unwrap_or_default(),
             themes: views,
-            drift: drift
-                .into_iter()
-                .map(|(part, id)| DriftView {
-                    part: part.name(),
-                    id,
-                })
-                .collect(),
+            drift,
         })
     })
 }
@@ -229,7 +326,7 @@ pub async fn themes_view(
 /// without its pictures, so a file that is missing or too big gives none.
 #[tauri::command]
 pub async fn theme_cursor_image(id: String, role: String) -> Result<Option<String>, String> {
-    let Some(set) = windows_sets().into_iter().find(|set| set.id == id) else {
+    let Some(set) = cursor_set(&id) else {
         return Err(format!("no cursor set {id:?}"));
     };
     let Some(path) = Role::from_name(&role)
@@ -254,6 +351,8 @@ pub async fn theme_cursor_image(id: String, role: String) -> Result<Option<Strin
 /// One line of "what will change".
 #[derive(Serialize)]
 pub struct ThemeLine {
+    /// "cursors" or "sounds".
+    part: &'static str,
     /// The cursor role, or the sound event, by its registry name.
     role: String,
     /// What Windows calls a sound event in this language; cursors are named by
@@ -267,8 +366,10 @@ pub struct ThemeLine {
 pub struct ThemePreview {
     /// What would change; what already matches is left out.
     lines: Vec<ThemeLine>,
-    /// The theme in effect that this one takes off first.
-    replaces: Option<String>,
+    /// The themes in effect that this one takes off first.
+    replaces: Vec<String>,
+    /// Events the theme names that this Windows does not have.
+    skipped: Vec<String>,
 }
 
 /// The event a `...\<app>\<event>\.Current` target belongs to, as `(app,
@@ -283,6 +384,7 @@ fn sound_event_of(path: &str) -> Option<(&str, &str)> {
 /// A journal target as a preview line: a cursor role, or a sound event with
 /// the name Windows gives it.
 fn line_of(
+    part: Part,
     target: &Target,
     events: &[SoundEvent],
     current: Option<Value>,
@@ -302,6 +404,7 @@ fn line_of(
         other => (other.to_string(), None),
     };
     ThemeLine {
+        part: part.name(),
         role,
         label,
         current,
@@ -312,68 +415,64 @@ fn line_of(
 #[tauri::command]
 pub async fn theme_preview(
     state: tauri::State<'_, TweakEngine>,
-    part: String,
     id: String,
     on: bool,
     lang: String,
 ) -> Result<ThemePreview, String> {
-    let part = part_named(&part)?;
     let events = platform::sounds::events();
-    let themes = all(&lang, &events);
-    let titles: Vec<(Part, String, String)> = themes
-        .iter()
-        .map(|theme| (theme.part(), theme.id.clone(), theme.title.clone()))
-        .collect();
-    let theme = find(themes, part, &id)?;
+    let all = all(&lang, &events, &packages());
+    let theme = find(&all, &id)?;
     with_engine(&state, |engine| {
-        let active = themes::active(engine, part);
-        let in_effect = |other: &str| {
-            let name = themes::journal_id(part, other);
-            engine
-                .entries()
-                .iter()
-                .filter(move |entry| entry.tweak == name && entry.state == State::Applied)
-        };
-        let mut lines: Vec<(Target, Option<Value>)> = if on {
-            theme
-                .changes()
-                .into_iter()
-                .map(|change| (change.target, change.value))
-                .collect()
-        } else {
-            // Off gives back what was there before LimeKit.
-            in_effect(&id)
-                .map(|entry| (entry.target.clone(), entry.before.value.clone()))
-                .collect()
-        };
-        let replaced = active.filter(|other| on && *other != id);
-        if let Some(other) = &replaced {
-            // What the old theme set and this one does not goes back to what
-            // it was before the old theme.
-            for entry in in_effect(other) {
-                if !lines.iter().any(|(target, _)| *target == entry.target) {
-                    lines.push((entry.target.clone(), entry.before.value.clone()));
+        let mut lines = Vec::new();
+        let mut replaces: Vec<String> = Vec::new();
+        for content in &theme.parts {
+            let part = content.part();
+            let in_effect = |other: &str| {
+                let name = themes::journal_id(part, other);
+                engine
+                    .entries()
+                    .iter()
+                    .filter(move |entry| entry.tweak == name && entry.state == State::Applied)
+            };
+            let mut shown: Vec<(Target, Option<Value>)> = if on {
+                content
+                    .changes(&REAL)
+                    .into_iter()
+                    .map(|change| (change.target, change.value))
+                    .collect()
+            } else {
+                // Off gives back what was there before LimeKit.
+                in_effect(&id)
+                    .map(|entry| (entry.target.clone(), entry.before.value.clone()))
+                    .collect()
+            };
+            let replaced = themes::active(engine, part).filter(|other| on && *other != id);
+            if let Some(other) = &replaced {
+                // What the old theme set and this one does not goes back to
+                // what it was before the old theme.
+                for entry in in_effect(other) {
+                    if !shown.iter().any(|(target, _)| *target == entry.target) {
+                        shown.push((entry.target.clone(), entry.before.value.clone()));
+                    }
+                }
+                let title = all
+                    .iter()
+                    .find(|found| found.id == *other)
+                    .map_or_else(|| other.clone(), |found| found.title.clone());
+                if !replaces.contains(&title) {
+                    replaces.push(title);
                 }
             }
-        }
-        let lines = lines
-            .into_iter()
-            .map(|(target, next)| {
+            for (target, next) in shown {
                 let current = engine.current(&target).map_err(|error| error.to_string())?;
-                Ok(line_of(&target, &events, current, next))
-            })
-            .collect::<Result<Vec<_>, String>>()?
-            .into_iter()
-            .filter(|line| line.current != line.next)
-            .collect();
+                lines.push(line_of(part, &target, &events, current, next));
+            }
+        }
+        lines.retain(|line| line.current != line.next);
         Ok(ThemePreview {
             lines,
-            replaces: replaced.map(|other| {
-                titles
-                    .iter()
-                    .find(|(found, id, _)| *found == part && *id == other)
-                    .map_or(other, |(_, _, title)| title.clone())
-            }),
+            replaces,
+            skipped: theme.skipped.clone(),
         })
     })
 }
@@ -381,21 +480,22 @@ pub async fn theme_preview(
 #[tauri::command]
 pub async fn theme_switch(
     state: tauri::State<'_, TweakEngine>,
-    part: String,
     id: String,
     on: bool,
 ) -> Result<SwitchOutcome, String> {
-    let part = part_named(&part)?;
-    let theme = find(all("en", &platform::sounds::events()), part, &id)?;
+    let all = all("en", &platform::sounds::events(), &packages());
+    let theme = find(&all, &id)?;
     if let Some(version) = platform::system::windows_version()
         && !themes::requirements().availability(&version).applies()
     {
         return Ok(SwitchOutcome::NotAvailable);
     }
-    let outcome = with_engine(&state, |engine| {
-        switch(engine, part, &theme.id, &theme.changes(), on)
-    })?;
-    if part == Part::Cursors
+    let outcome = with_engine(&state, |engine| switch_theme(engine, theme, on, &REAL))?;
+    let has_cursors = theme
+        .parts
+        .iter()
+        .any(|content| content.part() == Part::Cursors);
+    if has_cursors
         && matches!(
             outcome,
             SwitchOutcome::Done | SwitchOutcome::ChangedSince { .. }
@@ -406,8 +506,54 @@ pub async fn theme_switch(
     Ok(outcome)
 }
 
-/// On puts the theme's part on, taking off the theme that has it now. Off
-/// undoes through the journal whatever LimeKit changed for it.
+/// Puts every part of the theme on, or takes every part off. A part Windows
+/// refuses takes back the parts this call had already put on, so a theme goes
+/// on whole or not at all.
+fn switch_theme(
+    engine: &mut Engine<CurrentUser>,
+    theme: &Theme,
+    on: bool,
+    keys: &Keys,
+) -> Result<SwitchOutcome, String> {
+    let mut changed_since: Vec<String> = Vec::new();
+    let mut nothing_changed = true;
+    let mut touched: Vec<Part> = Vec::new();
+    for content in &theme.parts {
+        let part = content.part();
+        match switch(engine, part, &theme.id, &content.changes(keys), on)? {
+            SwitchOutcome::Done => {
+                nothing_changed = false;
+                touched.push(part);
+            }
+            SwitchOutcome::AlreadySet => {}
+            SwitchOutcome::ChangedSince { targets } => {
+                nothing_changed = false;
+                changed_since.extend(targets);
+                touched.push(part);
+            }
+            refused => {
+                for done in touched.iter().rev() {
+                    // Best effort: what cannot be undone stays in the journal,
+                    // where "Вернуть всё" finds it.
+                    let _ = themes::take_off(engine, *done, &theme.id);
+                }
+                return Ok(refused);
+            }
+        }
+    }
+    Ok(if !changed_since.is_empty() {
+        SwitchOutcome::ChangedSince {
+            targets: changed_since,
+        }
+    } else if on && nothing_changed {
+        SwitchOutcome::AlreadySet
+    } else {
+        SwitchOutcome::Done
+    })
+}
+
+/// On puts a part on, taking off the theme that has it now. Off undoes through
+/// the journal whatever LimeKit changed for it.
 fn switch(
     engine: &mut Engine<CurrentUser>,
     part: Part,
@@ -453,16 +599,97 @@ fn switch(
     }
 }
 
+/// What an import added.
+#[derive(Clone, Serialize)]
+pub struct Imported {
+    pub id: String,
+    pub name: String,
+}
+
+/// A refusal in words a person can act on. The ones people meet most are said
+/// in Russian, as the rest of the window is; the others keep the library's
+/// own English.
+fn describe(error: &ThemeError) -> String {
+    match error {
+        ThemeError::WallpaperPackage => {
+            "Это пакет обоев, а не тема: добавьте его в библиотеку обоев.".to_owned()
+        }
+        ThemeError::MissingDescriptor => "В пакете нет theme.json: это не тема LimeKit.".to_owned(),
+        ThemeError::NewerFormat(format) => {
+            format!("Тема сделана в формате {format}, который эта версия LimeKit не читает.")
+        }
+        ThemeError::AlreadyInLibrary(id) => format!("Тема «{id}» уже в библиотеке."),
+        other => other.to_string(),
+    }
+}
+
+/// Adds the package at `path` to the library. The first import also registers
+/// the `.limetheme` association, so a double click finds the program.
+pub fn import_path(path: &Path) -> Result<Imported, String> {
+    // The data directory still looks empty while the LimeWall one has not been
+    // moved over. Creating the themes folder now would make the half-made
+    // directory look real, and the old data would never be brought over.
+    if platform::appdata::migration_pending() {
+        return Err(crate::MIGRATION_PENDING.to_owned());
+    }
+    let theme = library()?.import(path).map_err(|error| describe(&error))?;
+    if let Err(error) = crate::assoc::register_theme() {
+        eprintln!("theme association not registered: {error}");
+    }
+    Ok(Imported {
+        id: theme.id().to_owned(),
+        name: theme.manifest.name.clone(),
+    })
+}
+
+#[tauri::command]
+pub async fn theme_import(path: String) -> Result<Imported, String> {
+    tauri::async_runtime::spawn_blocking(move || import_path(Path::new(&path)))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+/// Deletes a theme from the library. A theme in effect is taken off first,
+/// because the registry points at its files. Values something changed since
+/// stay as they are and come back as the result.
+#[tauri::command]
+pub async fn theme_remove(
+    state: tauri::State<'_, TweakEngine>,
+    id: String,
+) -> Result<Vec<String>, String> {
+    let library = library()?;
+    library
+        .get(&id)
+        .ok_or_else(|| format!("no theme {id:?} in the library"))?;
+    let (left_alone, had_cursors) = with_engine(&state, |engine| {
+        let had_cursors = themes::active(engine, Part::Cursors).as_deref() == Some(id.as_str());
+        let mut left_alone = Vec::new();
+        for part in [Part::Cursors, Part::Sounds] {
+            left_alone.extend(
+                themes::take_off(engine, part, &id)
+                    .map_err(|error| error.to_string())?
+                    .iter()
+                    .map(ToString::to_string),
+            );
+        }
+        Ok((left_alone, had_cursors))
+    })?;
+    library.remove(&id).map_err(|error| describe(&error))?;
+    if had_cursors {
+        platform::shell::reload_cursors()?;
+    }
+    Ok(left_alone)
+}
+
 #[cfg(all(windows, test))]
 mod tests {
     use super::*;
     use platform::registry::{self, RawValue};
 
-    /// A set over a private key under HKCU and a journal in a temp folder,
-    /// both gone after the test.
+    /// Private keys under HKCU and a journal in a temp folder, all gone after
+    /// the test.
     struct Sandbox {
         root: String,
-        changes: Vec<Change>,
         _dir: tempfile::TempDir,
         engine: Engine<CurrentUser>,
     }
@@ -472,42 +699,83 @@ mod tests {
             let root = format!(r"Software\LimeKitTest-{}-themes-{name}", std::process::id());
             let dir = tempfile::tempdir().unwrap();
             let engine = Engine::open(CurrentUser, &dir.path().join("journal.jsonl")).unwrap();
-            let set = CursorSet {
-                id: "windows-test".into(),
-                name: "Test".into(),
-                roles: vec![(Role::Arrow, r"C:\test\arrow.cur".into())],
-            };
             let sandbox = Sandbox {
-                changes: themes::cursor_changes(&set, &format!(r"{root}\Cursors")),
                 root,
                 _dir: dir,
                 engine,
             };
-            sandbox.write(r"C:\original\arrow.cur");
+            sandbox.write_arrow(r"C:\original\arrow.cur");
+            registry::write_value(
+                &sandbox.close_key(),
+                "",
+                &Value::Sz(r"C:\Windows\media\close.wav".into()).to_raw(),
+            )
+            .unwrap();
             sandbox
         }
 
-        fn key(&self) -> String {
+        fn cursors_key(&self) -> String {
             format!(r"{}\Cursors", self.root)
         }
 
-        fn write(&self, path: &str) {
-            registry::write_value(&self.key(), "Arrow", &Value::Sz(path.into()).to_raw()).unwrap();
+        fn sounds_key(&self) -> String {
+            format!(r"{}\Apps", self.root)
         }
 
-        fn switch(&mut self, on: bool) -> SwitchOutcome {
-            switch(
-                &mut self.engine,
-                Part::Cursors,
-                "windows-test",
-                &self.changes,
-                on,
+        fn close_key(&self) -> String {
+            format!(r"{}\.Default\Close\.Current", self.sounds_key())
+        }
+
+        fn write_arrow(&self, path: &str) {
+            registry::write_value(
+                &self.cursors_key(),
+                "Arrow",
+                &Value::Sz(path.into()).to_raw(),
             )
-            .unwrap()
+            .unwrap();
         }
 
         fn arrow(&self) -> Option<RawValue> {
-            registry::read_value(&self.key(), "Arrow").unwrap()
+            registry::read_value(&self.cursors_key(), "Arrow").unwrap()
+        }
+
+        fn close(&self) -> Option<RawValue> {
+            registry::read_value(&self.close_key(), "").unwrap()
+        }
+
+        /// A theme with both parts over the private keys.
+        fn theme(&self) -> Theme {
+            let sounds = themes::silence(&[SoundEvent {
+                app: ".Default".into(),
+                event: "Close".into(),
+                label: "Закрытие программы".into(),
+                sound: Some(r"C:\Windows\media\close.wav".into()),
+            }]);
+            Theme {
+                id: "both".into(),
+                title: "Both".into(),
+                description: String::new(),
+                source: Source::Package,
+                parts: vec![
+                    Content::Cursors(CursorSet {
+                        id: "both".into(),
+                        name: "Both".into(),
+                        roles: vec![(Role::Arrow, r"C:\test\arrow.cur".into())],
+                    }),
+                    Content::Sounds(sounds),
+                ],
+                skipped: Vec::new(),
+            }
+        }
+
+        fn switch(&mut self, theme: &Theme, on: bool) -> SwitchOutcome {
+            let cursors = self.cursors_key();
+            let sounds = self.sounds_key();
+            let keys = Keys {
+                cursors: &cursors,
+                sounds: &sounds,
+            };
+            switch_theme(&mut self.engine, theme, on, &keys).unwrap()
         }
     }
 
@@ -517,49 +785,78 @@ mod tests {
         }
     }
 
-    fn sz(path: &str) -> Option<RawValue> {
-        Some(Value::Sz(path.into()).to_raw())
+    fn sz(text: &str) -> Option<RawValue> {
+        Some(Value::Sz(text.into()).to_raw())
     }
 
     #[test]
-    fn off_after_on_gives_back_the_cursor_that_was_there() {
-        let mut sandbox = Sandbox::new("round-trip");
+    fn a_theme_with_both_parts_goes_on_and_off_as_one() {
+        let mut sandbox = Sandbox::new("both");
+        let theme = sandbox.theme();
 
-        assert!(matches!(sandbox.switch(true), SwitchOutcome::Done));
+        assert!(matches!(sandbox.switch(&theme, true), SwitchOutcome::Done));
         assert_eq!(sandbox.arrow(), sz(r"C:\test\arrow.cur"));
-        assert!(matches!(sandbox.switch(false), SwitchOutcome::Done));
+        assert_eq!(sandbox.close(), sz(""));
+        assert!(matches!(sandbox.switch(&theme, false), SwitchOutcome::Done));
 
         assert_eq!(sandbox.arrow(), sz(r"C:\original\arrow.cur"));
+        assert_eq!(sandbox.close(), sz(r"C:\Windows\media\close.wav"));
     }
 
     #[test]
     fn on_twice_changes_nothing_the_second_time() {
         let mut sandbox = Sandbox::new("twice");
-        sandbox.switch(true);
-
-        assert!(matches!(sandbox.switch(true), SwitchOutcome::AlreadySet));
-    }
-
-    #[test]
-    fn off_leaves_alone_a_cursor_changed_after_the_theme() {
-        let mut sandbox = Sandbox::new("changed");
-        sandbox.switch(true);
-        sandbox.write(r"C:\mine\arrow.cur");
+        let theme = sandbox.theme();
+        sandbox.switch(&theme, true);
 
         assert!(matches!(
-            sandbox.switch(false),
-            SwitchOutcome::ChangedSince { .. }
+            sandbox.switch(&theme, true),
+            SwitchOutcome::AlreadySet
         ));
-        assert_eq!(sandbox.arrow(), sz(r"C:\mine\arrow.cur"));
     }
 
     #[test]
-    fn a_set_that_has_nothing_to_change_is_already_set() {
+    fn a_change_after_the_theme_is_left_alone_and_the_other_part_still_comes_off() {
+        let mut sandbox = Sandbox::new("changed");
+        let theme = sandbox.theme();
+        sandbox.switch(&theme, true);
+        sandbox.write_arrow(r"C:\mine\arrow.cur");
+
+        let outcome = sandbox.switch(&theme, false);
+
+        assert!(
+            matches!(outcome, SwitchOutcome::ChangedSince { ref targets } if targets.len() == 1)
+        );
+        assert_eq!(sandbox.arrow(), sz(r"C:\mine\arrow.cur"));
+        assert_eq!(sandbox.close(), sz(r"C:\Windows\media\close.wav"));
+    }
+
+    #[test]
+    fn a_theme_whose_sounds_are_already_silent_goes_on_through_its_cursors() {
+        let mut sandbox = Sandbox::new("silent");
+        registry::write_value(&sandbox.close_key(), "", &Value::Sz(String::new()).to_raw())
+            .unwrap();
+        let mut theme = sandbox.theme();
+        // Nothing is left to silence, so the sound set is empty.
+        theme.parts[1] = Content::Sounds(themes::silence(&[]));
+
+        assert!(matches!(sandbox.switch(&theme, true), SwitchOutcome::Done));
+
+        assert_eq!(sandbox.arrow(), sz(r"C:\test\arrow.cur"));
+    }
+
+    #[test]
+    fn a_theme_that_has_nothing_to_change_is_already_set() {
         let mut sandbox = Sandbox::new("empty");
+        let theme = Theme {
+            parts: vec![Content::Sounds(themes::silence(&[]))],
+            ..sandbox.theme()
+        };
 
-        let outcome = switch(&mut sandbox.engine, Part::Sounds, "no-sounds", &[], true).unwrap();
-
-        assert!(matches!(outcome, SwitchOutcome::AlreadySet));
+        assert!(matches!(
+            sandbox.switch(&theme, true),
+            SwitchOutcome::AlreadySet
+        ));
     }
 
     #[test]
@@ -595,12 +892,26 @@ mod tests {
             name: "Arrow".into(),
         };
 
-        let line = line_of(&sound, &events, None, None);
+        let line = line_of(Part::Sounds, &sound, &events, None, None);
         assert_eq!(
-            (line.role.as_str(), line.label.as_deref()),
-            ("SystemAsterisk", Some("Звёздочка"))
+            (line.part, line.role.as_str(), line.label.as_deref()),
+            ("sounds", "SystemAsterisk", Some("Звёздочка"))
         );
-        let line = line_of(&cursor, &events, None, None);
-        assert_eq!((line.role.as_str(), line.label), ("Arrow", None));
+        let line = line_of(Part::Cursors, &cursor, &events, None, None);
+        assert_eq!(
+            (line.part, line.role.as_str(), line.label),
+            ("cursors", "Arrow", None)
+        );
+    }
+
+    #[test]
+    fn the_refusals_people_meet_are_said_in_russian() {
+        assert!(describe(&ThemeError::WallpaperPackage).contains("пакет обоев"));
+        assert!(describe(&ThemeError::MissingDescriptor).contains("theme.json"));
+        assert!(describe(&ThemeError::AlreadyInLibrary("x".into())).contains("уже в библиотеке"));
+        assert_eq!(
+            describe(&ThemeError::TooBig),
+            ThemeError::TooBig.to_string()
+        );
     }
 }

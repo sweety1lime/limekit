@@ -1,17 +1,21 @@
 [package]
 name = "themes"
-description = "LimeKit themes: cursor and sound sets applied through the tweak journal"
+description = "LimeKit themes: cursor and sound sets applied through the tweak journal, and the library of theme packages"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
 [dependencies]
 platform = { path = "../platform" }
-tweaks = { path = "../tweaks" }
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
+tweaks = { path = "../tweaks" }
+wpk = { path = "../wpk" }
 
 [dev-dependencies]
 tempfile = "3"
+zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dev-dependencies]
 windows-registry = "0.5"

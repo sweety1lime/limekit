@@ -199,6 +199,36 @@ For **Без звуков**, in the **Звуки** section, with the registry sa
    **Вернуть**: the screen names that event as changed and keeps your choice.
 6. Apply a cursor set and **Без звуков**, put back one of them: the other stays.
 
+For a theme package, `.limetheme`. Make one: a zip with a `theme.json` (the
+format is in `docs/research/themes.md`), a cursor or two and a sound, from files
+you may use. Save both registry keys as above first.
+
+1. On the **Темы** tab press **Добавить тему** and pick the package. A card
+   appears under **Мои темы** with a chip for each part the package carries.
+   Nothing in Windows has changed: `reg query` and the sounds export match the
+   saved ones.
+2. Apply it. The confirmation lists the cursors and the sounds, one line each,
+   and names the events this Windows does not have as left out.
+3. The pointer and a system sound change at once. **Вернуть** puts both back.
+4. Add the same package again: the window says the theme is already in the
+   library.
+5. Double-click a `.limetheme` file with another id; if the window was closed it
+   opens first. The theme is in the list. Drag a third one onto the open
+   window: the same.
+6. `reg query "HKCU\Software\Classes\.limetheme"` finds the association after
+   the first import and not before it.
+7. Try the refusals: a `.limekit` renamed to `.limetheme` (the window says it is
+   a wallpaper), a package with an `.exe` in it, a `.cur` that is really text,
+   a name with `..` in it. Each is refused with a reason, and
+   `%APPDATA%\LimeKit\themes` holds only the themes imported so far, no
+   `.staging` folder among them.
+8. Apply the theme and press **Удалить**. The confirmation says the theme is in
+   effect. Afterwards the cursors and sounds are as before, and the card and the
+   folder `%APPDATA%\LimeKit\themes\<id>` are gone.
+9. With a theme applied, run **Убрать LimeKit из системы** on a test account:
+   the cursors and sounds come back, and the `.limetheme` key is gone with the
+   other associations.
+
 ## Politeness
 
 See `docs/research/politeness.md` for the rules.

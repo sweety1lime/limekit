@@ -1594,3 +1594,27 @@ body.dragging .dropzone {
   display: flex;
   gap: 8px;
 }
+
+/* The intro of the themes tab with the button that adds a theme. */
+.themes-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.themes-toolbar .tweaks-intro {
+  flex: 1;
+}
+
+.themes-toolbar .btn-primary {
+  flex-shrink: 0;
+}
+
+/* The buttons of a theme's card. */
+.theme-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}

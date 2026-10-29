@@ -3,10 +3,13 @@
 //! version are mandatory because the future gallery and paid packs depend on
 //! them.
 //!
-//! The extension is [`PACK_EXT`]. It was `.wpk` ("wallpaper pack") while the
-//! app was a wallpaper engine; now that packs will also carry themes and
-//! widgets the name no longer fit, so new files are written as `.limekit` and the
-//! old extension stays readable — see [`ACCEPTED_EXTS`].
+//! The extension is [`PACK_EXT`]; the older `wpk` is still accepted, see
+//! [`ACCEPTED_EXTS`]. A package carries one wallpaper. Themes ship as their own
+//! `.limetheme` packages, so someone who only wants wallpapers never imports
+//! anything that changes Windows settings.
+//!
+//! [`list_members`] and [`read_member`] give other zip-based formats the same
+//! name-checked, size-capped access to a package.
 
 use std::fs::File;
 use std::io::{Read, Write};
@@ -175,6 +178,52 @@ pub fn extract_all(package: &Path, target_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// A file inside a package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Member {
+    pub name: String,
+    /// The size the archive declares. Do not trust it: reading caps by the
+    /// bytes actually produced.
+    pub size: u64,
+}
+
+/// The files of a package, directories left out. Every name must be safe, and
+/// a package with more than [`MAX_PACKAGE_FILES`] files is refused. Works for
+/// any package that is a zip with safe names, wallpaper or not.
+pub fn list_members(package: &Path) -> Result<Vec<Member>> {
+    let mut archive = ZipArchive::new(File::open(package)?)?;
+    let mut members = Vec::new();
+    for index in 0..archive.len() {
+        let member = archive.by_index(index)?;
+        let name = member.name().to_owned();
+        if name.ends_with('/') {
+            continue; // directory entry
+        }
+        ensure_safe_name(&name)?;
+        if members.len() >= MAX_PACKAGE_FILES {
+            return Err(WpkError::TooLarge {
+                name: "<package>".into(),
+                limit: MAX_PACKAGE_FILES as u64,
+            });
+        }
+        members.push(Member {
+            name,
+            size: member.size(),
+        });
+    }
+    Ok(members)
+}
+
+/// One file of a package as bytes, at most `limit` of them.
+pub fn read_member(package: &Path, member: &str, limit: u64) -> Result<Vec<u8>> {
+    ensure_safe_name(member)?;
+    let mut archive = ZipArchive::new(File::open(package)?)?;
+    let mut file = archive
+        .by_name(member)
+        .map_err(|_| WpkError::MissingFile(member.to_owned()))?;
+    read_capped(&mut file, limit, member)
+}
+
 /// Writes a package: the manifest plus `(archive_name, source_path)` files.
 pub fn write_package(target: &Path, manifest: &Manifest, files: &[(&str, &Path)]) -> Result<()> {
     validate_manifest(manifest)?;
@@ -267,8 +316,8 @@ fn copy_capped(
     Ok(copied)
 }
 
-/// Flat, relative, forward-slash names only — no traversal, no drives.
-fn ensure_safe_name(name: &str) -> Result<()> {
+/// Relative, forward-slash names only — no traversal, no drives.
+pub fn ensure_safe_name(name: &str) -> Result<()> {
     let unsafe_name = || WpkError::UnsafeName(name.to_owned());
     if name.is_empty() || name.contains('\\') || name.contains(':') {
         return Err(unsafe_name());
@@ -335,6 +384,35 @@ mod tests {
             std::fs::read(&out).expect("read out"),
             b"not really a video"
         );
+    }
+
+    #[test]
+    fn members_are_listed_and_read_up_to_a_limit() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let package = write_sample(temp.path());
+
+        let members = list_members(&package).expect("list");
+        let names: Vec<&str> = members.iter().map(|member| member.name.as_str()).collect();
+        assert!(names.contains(&"manifest.json") && names.contains(&"wall.mp4"));
+        let wall = members.iter().find(|member| member.name == "wall.mp4");
+        assert_eq!(wall.map(|member| member.size), Some(18));
+
+        assert_eq!(
+            read_member(&package, "wall.mp4", 100).expect("read"),
+            b"not really a video"
+        );
+        assert!(matches!(
+            read_member(&package, "wall.mp4", 4),
+            Err(WpkError::TooLarge { .. })
+        ));
+        assert!(matches!(
+            read_member(&package, "nothing.bin", 100),
+            Err(WpkError::MissingFile(_))
+        ));
+        assert!(matches!(
+            read_member(&package, "../wall.mp4", 100),
+            Err(WpkError::UnsafeName(_))
+        ));
     }
 
     #[test]

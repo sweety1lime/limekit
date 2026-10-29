@@ -15,6 +15,17 @@
   and off independently. A theme goes through the same journal as a tweak, so
   "Вернуть всё", the `.reg` undo and "Убрать LimeKit из системы" cover it too.
   Themes are not checked on any Windows build yet, and the screen says so.
+- **Theme packages, `.limetheme`.** "Добавить тему" on the "Темы" tab, a drop
+  onto the window or a double click on the file adds a package of cursors and
+  sounds to the list, under "Мои темы". Adding changes nothing in Windows until
+  you press "Применить", and "Удалить" takes a theme that is in effect off
+  first. A package is a zip with a `theme.json` and nothing but `.cur`, `.ani`,
+  `.wav` and a picture. Another kind of file, a file that is not what its
+  extension says, one over its size limit, or a name that climbs out of the
+  folder refuses the whole package and leaves nothing on disk. Wallpaper
+  packages stay `.limekit` and stay apart: a wallpaper renamed to `.limetheme`
+  says it is a wallpaper, and the `.limetheme` association is written only
+  after the first import and removed by "Убрать LimeKit из системы".
 
 ### Changed
 
@@ -29,6 +40,9 @@
 - New crate `crates/themes`; `platform::cursors` reads the schemes Windows
   ships, and `platform::shell` can reload cursors and resolve `@file,-id`
   strings. The design is in `docs/research/themes.md`.
+- `wpk::list_members` and `wpk::read_member` give another zip format the same
+  name-checked, size-capped reading that wallpaper packages get; the theme
+  library imports a package through them, file by file, instead of unpacking it.
 
 ## 0.3.1 — 36 tweaks, and two that Explorer no longer undoes
 

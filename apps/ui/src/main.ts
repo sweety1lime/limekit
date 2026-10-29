@@ -9,6 +9,8 @@ import { type Key, lang, t } from "./i18n";
 // are saved as `.limekit`; `.wpk` from 0.1 still imports.
 const PACK_EXT = "limekit";
 const PACK_EXTS = ["limekit", "wpk"] as const;
+// Theme packages are their own kind of file, mirroring themes::EXTENSION.
+const THEME_EXT = "limetheme";
 
 // ---------------------------------------------------------------------------
 // types (mirror the Tauri backend; see src-tauri/src/lib.rs & crates/ipc)
@@ -158,25 +160,32 @@ interface UndoAll {
 
 type ThemePart = "cursors" | "sounds";
 
+type ThemeSource = "windows" | "lime_kit" | "package";
+
 interface ThemeView {
-  part: ThemePart;
   id: string;
   title: string;
   description: string;
-  source: "windows" | "lime_kit";
+  source: ThemeSource;
+  // The parts the theme has: cursors, sounds, or both.
+  parts: ThemePart[];
   availability: Availability;
   applied: boolean;
   // Roles the card can show a picture of, by registry name.
   pictures: string[];
+  // A theme from a package can be deleted from the library.
+  removable: boolean;
 }
 
 interface ThemesView {
   windows: string;
   themes: ThemeView[];
-  drift: { part: ThemePart; id: string }[];
+  // Ids of themes whose values something changed after LimeKit set them.
+  drift: string[];
 }
 
 interface ThemeLine {
+  part: ThemePart;
   // The cursor role or the sound event, by registry name.
   role: string;
   // What Windows calls a sound event; cursors are named here.
@@ -187,7 +196,15 @@ interface ThemeLine {
 
 interface ThemePreview {
   lines: ThemeLine[];
-  replaces: string | null;
+  // Titles of the themes in effect that this one takes off first.
+  replaces: string[];
+  // Events the theme names that this Windows does not have.
+  skipped: string[];
+}
+
+interface ImportedTheme {
+  id: string;
+  name: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1158,21 +1175,31 @@ function buildThemesBody(): HTMLElement {
     body.append(h("div", { class: "grid-empty" }, t("themes.loading")));
   } else {
     const view = themesView;
-    const list = h("div", { class: "tweak-list" }, h("p", { class: "tweaks-intro" }, t("themes.intro")));
+    const list = h(
+      "div",
+      { class: "tweak-list" },
+      h(
+        "div",
+        { class: "themes-toolbar" },
+        h("p", { class: "tweaks-intro" }, t("themes.intro")),
+        primarySmall(t("themes.add"), icons.plus, () => void importThemeDialog()),
+      ),
+    );
     if (view.drift.length) {
-      const names = view.drift.map(
-        (item) => view.themes.find((theme) => theme.part === item.part && theme.id === item.id)?.title ?? item.id,
-      );
+      const names = view.drift.map((id) => view.themes.find((theme) => theme.id === id)?.title ?? id);
       list.append(h("div", { class: "tweaks-drift" }, t("themes.drift", { list: names.join(", ") })));
     }
     if (view.themes.length === 0) list.append(h("div", { class: "grid-empty" }, t("themes.empty")));
-    // Sounds come first: one card, which would be lost below a dozen cursor sets.
-    const parts: [ThemePart, Key][] = [
-      ["sounds", "themes.partSounds"],
-      ["cursors", "themes.partCursors"],
+    // The themes someone added come first, then the one that is built in (a
+    // single card, which would be lost below a dozen cursor sets), then what
+    // Windows ships.
+    const groups: [ThemeSource, Key][] = [
+      ["package", "themes.groupPackage"],
+      ["lime_kit", "themes.groupLimeKit"],
+      ["windows", "themes.groupWindows"],
     ];
-    for (const [part, label] of parts) {
-      const themes = view.themes.filter((theme) => theme.part === part);
+    for (const [source, label] of groups) {
+      const themes = view.themes.filter((theme) => theme.source === source);
       if (themes.length === 0) continue;
       list.append(h("div", { class: "section-label tweak-category" }, t(label)));
       for (const theme of themes) list.append(renderTheme(theme));
@@ -1191,8 +1218,10 @@ function renderTheme(theme: ThemeView): HTMLElement {
     void loadCursorImage(theme.id, role, slot);
   }
   const usable = themeUsable(theme);
-  const control = usable
-    ? h(
+  const actions = h("div", { class: "theme-actions" });
+  if (usable) {
+    actions.append(
+      h(
         "button",
         {
           class: theme.applied ? "btn-ghost small" : "btn-primary small",
@@ -1201,8 +1230,28 @@ function renderTheme(theme: ThemeView): HTMLElement {
           onClick: () => void switchTheme(theme, !theme.applied),
         },
         t(theme.applied ? "themes.revert" : "themes.apply"),
-      )
-    : null;
+      ),
+    );
+  }
+  if (theme.removable) {
+    actions.append(
+      h(
+        "button",
+        {
+          class: "btn-ghost small",
+          type: "button",
+          disabled: themeBusy ? "true" : undefined,
+          onClick: () => void removeTheme(theme),
+        },
+        t("themes.remove"),
+      ),
+    );
+  }
+  const sourceText: Record<ThemeSource, Key> = {
+    windows: "themes.fromWindows",
+    lime_kit: "themes.fromLimeKit",
+    package: "themes.fromPackage",
+  };
   return h(
     "div",
     { class: "setting-card tweak-card theme-card" + (usable ? "" : " unavailable") },
@@ -1216,13 +1265,13 @@ function renderTheme(theme: ThemeView): HTMLElement {
         theme.description ? h("div", { class: "setting-desc" }, theme.description) : null,
         pictures,
       ),
-      control,
+      actions,
     ),
     h(
       "div",
       { class: "tweak-chips" },
-      h("span", { class: "format-chip" }, t(theme.source === "windows" ? "themes.fromWindows" : "themes.fromLimeKit")),
-      h("span", { class: "format-chip" }, t(theme.part === "sounds" ? "themes.sounds" : "themes.cursors")),
+      h("span", { class: "format-chip" }, t(sourceText[theme.source])),
+      ...theme.parts.map((part) => h("span", { class: "format-chip" }, t(part === "sounds" ? "themes.sounds" : "themes.cursors"))),
       h(
         "span",
         { class: "format-chip" + (theme.availability.kind === "verified" ? " accent" : "") },
@@ -1252,19 +1301,29 @@ async function loadCursorImage(theme: string, role: string, slot: HTMLElement) {
 // Shows what will change and asks before touching anything.
 async function switchTheme(theme: ThemeView, on: boolean) {
   if (themeBusy) return;
-  const preview = await call<ThemePreview>("theme_preview", { part: theme.part, id: theme.id, on, lang });
+  const preview = await call<ThemePreview>("theme_preview", { id: theme.id, on, lang });
   const parts = [t("confirm.changes")];
   if (preview.lines.length === 0) {
     parts.push(t("themes.nothing"));
   } else {
     // One line each: a set can change 17 cursors or two dozen sounds, and a
-    // taller message would not fit a small screen.
-    for (const line of preview.lines) {
-      const name = line.label ?? roleText(line.role);
-      parts.push(`${name}: ${describeThemeValue(theme.part, line.current)} → ${describeThemeValue(theme.part, line.next)}`);
+    // taller message would not fit a small screen. A theme with both parts
+    // says which is which.
+    const sections: [ThemePart, Key][] = [
+      ["cursors", "themes.partCursors"],
+      ["sounds", "themes.partSounds"],
+    ];
+    const shown = sections.filter(([part]) => preview.lines.some((line) => line.part === part));
+    for (const [part, heading] of shown) {
+      if (shown.length > 1) parts.push(`${t(heading)}:`);
+      for (const line of preview.lines.filter((item) => item.part === part)) {
+        const name = line.label ?? roleText(line.role);
+        parts.push(`${name}: ${describeThemeValue(part, line.current)} → ${describeThemeValue(part, line.next)}`);
+      }
     }
   }
-  if (preview.replaces) parts.push("", t("themes.replaces", { title: preview.replaces }));
+  for (const title of preview.replaces) parts.push("", t("themes.replaces", { title }));
+  if (on && preview.skipped.length) parts.push("", t("themes.skipped", { list: preview.skipped.join(", ") }));
   if (!on) parts.push("", t("confirm.revert"));
   if (on && theme.availability.kind === "unverified") parts.push("", t("themes.unverified"));
   const proceed = await ask(parts.join("\n"), {
@@ -1278,7 +1337,7 @@ async function switchTheme(theme: ThemeView, on: boolean) {
   themeBusy = theme.id;
   renderContent();
   try {
-    reportThemeSwitch(theme, on, await call<SwitchOutcome>("theme_switch", { part: theme.part, id: theme.id, on }));
+    reportThemeSwitch(theme, on, await call<SwitchOutcome>("theme_switch", { id: theme.id, on }));
   } catch {
     // error text is already shown by call()
   } finally {
@@ -1308,6 +1367,54 @@ function reportThemeSwitch(theme: ThemeView, on: boolean, outcome: SwitchOutcome
       report(t("themes.notAvailable"), true);
       break;
   }
+}
+
+// Takes a theme out of the library. One in effect goes off first: the registry
+// points at its files.
+async function removeTheme(theme: ThemeView) {
+  if (themeBusy) return;
+  const question = [t("themes.removeQuestion", { title: theme.title })];
+  if (theme.applied) question.push("", t("themes.removeApplied"));
+  const proceed = await ask(question.join("\n"), {
+    title: t("themes.removeTitle"),
+    kind: "warning",
+    okLabel: t("themes.remove"),
+    cancelLabel: t("confirm.cancel"),
+  });
+  if (!proceed) return;
+  try {
+    const left = await call<string[]>("theme_remove", { id: theme.id });
+    if (left.length) report(t("outcome.changedSince", { list: left.map(targetText).join(", ") }), true);
+    else report(t("themes.removed", { title: theme.title }));
+  } catch {
+    // error text is already shown by call()
+  }
+  await loadThemes();
+}
+
+async function importThemeDialog() {
+  const picked = await open({
+    multiple: true,
+    filters: [{ name: t("themes.fileFilter"), extensions: [THEME_EXT] }],
+  });
+  if (Array.isArray(picked)) await importThemes(picked);
+  else if (typeof picked === "string") await importThemes([picked]);
+}
+
+// Adds theme packages to the library and shows them. Themes are data and
+// change nothing in Windows until they are applied, so there is nothing to
+// confirm here.
+async function importThemes(paths: string[]) {
+  for (const path of paths) {
+    report(t("themes.importing"));
+    try {
+      const imported = await call<ImportedTheme>("theme_import", { path });
+      report(t("themes.imported", { title: imported.name }));
+    } catch {
+      // error text is already shown by call()
+    }
+  }
+  openWindows("themes");
 }
 
 // The way into tweaks and themes from the main screen, so nobody has to guess
@@ -2063,13 +2170,13 @@ function buildRemovalSection(): HTMLElement {
 
 async function removeFromSystem() {
   const proceed = await ask(
-    "Обои остановятся, автозапуск и ассоциация файлов .limekit будут сняты, а окно закроется.\n\n" +
+    "Обои остановятся, автозапуск и ассоциации файлов (.limekit и .limetheme) будут сняты, а окно закроется.\n\n" +
       "Продолжить?",
     { title: "Убрать LimeKit из системы", kind: "warning", okLabel: "Убрать", cancelLabel: "Отмена" },
   );
   if (!proceed) return;
   const removeData = await ask(
-    "Удалить заодно библиотеку обоев, настройки и кеш окна? Это папки %APPDATA%\\LimeKit и " +
+    "Удалить заодно библиотеки обоев и тем, настройки и кеш окна? Это папки %APPDATA%\\LimeKit и " +
       "%LOCALAPPDATA%\\com.twofame.limekit, вернуть их не получится.",
     { title: "Библиотека обоев", kind: "warning", okLabel: "Удалить", cancelLabel: "Оставить" },
   );
@@ -2354,6 +2461,12 @@ async function confirmCodeWallpaper(name: string, kind: string): Promise<boolean
 }
 
 async function importPaths(paths: string[]) {
+  // Theme packages are not wallpapers: they go to the theme library.
+  const isTheme = (path: string) => path.toLowerCase().endsWith(`.${THEME_EXT}`);
+  const themePaths = paths.filter(isTheme);
+  if (themePaths.length) await importThemes(themePaths);
+  paths = paths.filter((path) => !isTheme(path));
+  if (paths.length === 0) return;
   for (const path of paths) {
     const lower = path.toLowerCase();
     const gif = lower.endsWith(".gif");
@@ -2458,6 +2571,12 @@ window.addEventListener("DOMContentLoaded", () => {
   // A second app launch (double-clicked pack) imports in the backend and
   // pings us to show the result.
   void listen("library-changed", () => void refreshLibrary());
+  // A double-clicked theme package is imported in the backend the same way.
+  void listen<ImportedTheme>("themes-changed", (event) => {
+    report(t("themes.imported", { title: event.payload.name }));
+    openWindows("themes");
+  });
+  void listen<string>("themes-import-error", (event) => report(event.payload, true));
   // Code-bearing packages are not imported silently — the backend hands them
   // here for explicit consent first.
   void listen<ConsentRequest>("wpk-consent", async (event) => {

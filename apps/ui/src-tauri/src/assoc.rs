@@ -9,8 +9,16 @@
 //!
 //! LimeWall 0.1 registered `LimeWall.Package`. Once `.wpk` points at the new
 //! ProgID nothing refers to it any more, so it is removed.
+//!
+//! `.limetheme` has a ProgID of its own and is written separately, see
+//! [`register_theme`].
 
 pub const PROG_ID: &str = "LimeKit.Package";
+
+/// Theme packages have a ProgID of their own. Their association is written
+/// only once a theme has been imported, so nobody who just plays wallpapers
+/// gets it.
+pub const THEME_PROG_ID: &str = "LimeKit.Theme";
 
 /// ProgID LimeWall 0.1 registered.
 #[cfg(windows)]
@@ -47,6 +55,46 @@ pub fn register() -> Result<(), String> {
 #[cfg(not(windows))]
 pub fn register() -> Result<(), String> {
     Err("file association is Windows-only for now".into())
+}
+
+/// Registers `.limetheme` the way [`register`] registers `.limekit`. Runs after
+/// the first theme import, and at every UI start once a theme has been
+/// imported, so the path does not go stale when the folder moves.
+#[cfg(windows)]
+pub fn register_theme() -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(map)?;
+    if register_theme_under(r"Software\Classes", &exe)? {
+        platform::notify_associations_changed();
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub fn register_theme() -> Result<(), String> {
+    Err("file association is Windows-only for now".into())
+}
+
+/// Writes the `.limetheme` association under `classes` and reports whether
+/// anything changed. The extension is ours alone, as `.limekit` is.
+#[cfg(windows)]
+fn register_theme_under(classes: &str, exe: &std::path::Path) -> Result<bool, String> {
+    let mut changed = false;
+    let progid = format!(r"{classes}\{THEME_PROG_ID}");
+    changed |= set_if_different(&progid, "", "LimeKit theme")?;
+    changed |= set_if_different(
+        &format!(r"{progid}\DefaultIcon"),
+        "",
+        &format!("\"{}\",0", exe.display()),
+    )?;
+    changed |= set_if_different(
+        &format!(r"{progid}\shell\open\command"),
+        "",
+        &format!("\"{}\" \"%1\"", exe.display()),
+    )?;
+    let key = format!(r"{classes}\.{}", themes::EXTENSION);
+    changed |= set_if_different(&key, "", THEME_PROG_ID)?;
+    changed |= set_if_different(&format!(r"{key}\OpenWithProgids"), THEME_PROG_ID, "")?;
+    Ok(changed)
 }
 
 /// Writes the association under `classes` (a path inside HKCU) and reports
@@ -92,7 +140,9 @@ fn register_under(classes: &str, exe: &std::path::Path) -> Result<bool, String> 
 /// "Open with" list.
 #[cfg(windows)]
 pub fn unregister() -> Result<(), String> {
-    if unregister_under(r"Software\Classes")? {
+    let wallpapers = unregister_under(r"Software\Classes")?;
+    let themes = unregister_theme_under(r"Software\Classes")?;
+    if wallpapers || themes {
         platform::notify_associations_changed();
     }
     Ok(())
@@ -130,6 +180,40 @@ fn unregister_under(classes: &str) -> Result<bool, String> {
     }
 
     let progid = format!(r"{classes}\{PROG_ID}");
+    if root.open(&progid).is_ok() {
+        root.remove_tree(&progid).map_err(map)?;
+        changed = true;
+    }
+    Ok(changed)
+}
+
+/// Undoes [`register_theme_under`] and reports whether anything changed.
+#[cfg(windows)]
+fn unregister_theme_under(classes: &str) -> Result<bool, String> {
+    let root = windows_registry::CURRENT_USER;
+    let mut changed = false;
+
+    let path = format!(r"{classes}\.{}", themes::EXTENSION);
+    if let Ok(key) = root.options().read().write().open(&path) {
+        if key
+            .get_string("")
+            .is_ok_and(|current| current == THEME_PROG_ID)
+        {
+            key.remove_value("").map_err(map)?;
+            changed = true;
+        }
+        let open_with = format!(r"{path}\OpenWithProgids");
+        if let Ok(list) = root.options().read().write().open(&open_with)
+            && list.get_string(THEME_PROG_ID).is_ok()
+        {
+            list.remove_value(THEME_PROG_ID).map_err(map)?;
+            changed = true;
+            remove_if_empty(&open_with)?;
+        }
+        remove_if_empty(&path)?;
+    }
+
+    let progid = format!(r"{classes}\{THEME_PROG_ID}");
     if root.open(&progid).is_ok() {
         root.remove_tree(&progid).map_err(map)?;
         changed = true;
@@ -315,6 +399,69 @@ mod tests {
             Some("")
         );
         assert_eq!(sandbox.get(r".wpk\OpenWithProgids", PROG_ID), None);
+    }
+
+    #[test]
+    fn registers_the_theme_extension_with_icon_and_command_and_only_once() {
+        let sandbox = Sandbox::new("theme");
+        assert!(register_theme_under(&sandbox.0, &exe()).unwrap());
+
+        assert_eq!(
+            sandbox.get(".limetheme", "").as_deref(),
+            Some(THEME_PROG_ID)
+        );
+        assert_eq!(
+            sandbox
+                .get(r".limetheme\OpenWithProgids", THEME_PROG_ID)
+                .as_deref(),
+            Some("")
+        );
+        assert_eq!(
+            sandbox.get(&format!(r"{THEME_PROG_ID}\shell\open\command"), ""),
+            Some(r#""C:\LimeKit\LimeKit.exe" "%1""#.to_owned())
+        );
+        assert_eq!(
+            sandbox.get(&format!(r"{THEME_PROG_ID}\DefaultIcon"), ""),
+            Some(r#""C:\LimeKit\LimeKit.exe",0"#.to_owned())
+        );
+        // Every UI start after the first import registers again; nothing
+        // changes, so Explorer is not made to refresh its icons for nothing.
+        assert!(!register_theme_under(&sandbox.0, &exe()).unwrap());
+    }
+
+    #[test]
+    fn the_wallpaper_association_does_not_carry_the_theme_one() {
+        let sandbox = Sandbox::new("theme-apart");
+
+        register_under(&sandbox.0, &exe()).unwrap();
+
+        assert_eq!(sandbox.get(".limetheme", ""), None);
+        assert_eq!(
+            sandbox.get(&format!(r"{THEME_PROG_ID}\shell\open\command"), ""),
+            None
+        );
+    }
+
+    #[test]
+    fn unregister_removes_the_theme_association_and_leaves_the_wallpaper_one() {
+        let sandbox = Sandbox::new("theme-cleanup");
+        register_under(&sandbox.0, &exe()).unwrap();
+        register_theme_under(&sandbox.0, &exe()).unwrap();
+
+        assert!(unregister_theme_under(&sandbox.0).unwrap());
+
+        assert!(
+            windows_registry::CURRENT_USER
+                .open(format!(r"{}\.limetheme", sandbox.0))
+                .is_err()
+        );
+        assert!(
+            windows_registry::CURRENT_USER
+                .open(format!(r"{}\{THEME_PROG_ID}", sandbox.0))
+                .is_err()
+        );
+        assert_eq!(sandbox.get(".limekit", "").as_deref(), Some(PROG_ID));
+        assert!(!unregister_theme_under(&sandbox.0).unwrap());
     }
 
     #[test]

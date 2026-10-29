@@ -4,10 +4,11 @@
 //! uninstaller can run the same command.
 //!
 //! What goes: the running daemon, which also puts the Windows wallpaper back;
-//! every tweak change still in effect, undone through the journal; the
-//! autostart entry; our part of the `.limekit` / `.wpk` association. With
-//! `--remove-data` also the library, settings and log in `%APPDATA%\LimeKit`
-//! and the window's WebView2 data in `%LOCALAPPDATA%`.
+//! every tweak and theme change still in effect, undone through the journal;
+//! the autostart entry; our part of the `.limekit` / `.wpk` and `.limetheme`
+//! associations. With `--remove-data` also the wallpaper and theme libraries,
+//! settings and log in `%APPDATA%\LimeKit` and the window's WebView2 data in
+//! `%LOCALAPPDATA%`.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -74,13 +75,13 @@ pub fn run(options: &Options) -> i32 {
                 ));
             }
         }
-        Err(error) => failures.push(format!("отмена твиков: {error}")),
+        Err(error) => failures.push(format!("отмена твиков и тем: {error}")),
     }
     if let Err(error) = platform::set_autostart(platform::AUTOSTART_APP, None) {
         failures.push(format!("автозапуск: {error}"));
     }
     if let Err(error) = assoc::unregister() {
-        failures.push(format!("ассоциация файлов .limekit: {error}"));
+        failures.push(format!("ассоциации файлов: {error}"));
     }
     if options.remove_data {
         for dir in data_dirs() {
@@ -126,12 +127,12 @@ fn remove_dir(dir: &Path) -> std::io::Result<()> {
 fn report(options: &Options, failures: &[String], tweaks_undone: usize) {
     if failures.is_empty() {
         let tweaks = if tweaks_undone > 0 {
-            ", изменения твиков отменены"
+            ", изменения твиков и тем отменены"
         } else {
             ""
         };
         let data = if options.remove_data {
-            ", библиотека обоев и настройки удалены"
+            ", библиотеки обоев и тем и настройки удалены"
         } else {
             ""
         };
@@ -142,8 +143,8 @@ fn report(options: &Options, failures: &[String], tweaks_undone: usize) {
         platform::show_message(
             "LimeKit",
             &format!(
-                "LimeKit убран из системы: обои остановлены, автозапуск и ассоциация \
-                 файлов .limekit сняты{tweaks}{data}.\n\nТеперь можно удалить папку с программой:\n{folder}"
+                "LimeKit убран из системы: обои остановлены, автозапуск и ассоциации \
+                 файлов сняты{tweaks}{data}.\n\nТеперь можно удалить папку с программой:\n{folder}"
             ),
             false,
         );
