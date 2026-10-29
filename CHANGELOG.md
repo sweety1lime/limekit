@@ -4,14 +4,17 @@
 
 ### Added
 
-- **Themes: cursors.** The "Windows" screen has a "Темы" tab that lists the
-  cursor sets Windows ships (Windows Aero, Black and Inverted, in regular,
-  large and extra large), each with a picture of a few of its cursors. Apply
-  one and the cursors change at once, with no sign-out. "Вернуть" gives back
-  exactly what was there before LimeKit, cursors that were empty or not set at
-  all included. A theme goes through the same journal as a tweak, so "Вернуть
-  всё", the `.reg` undo and "Убрать LimeKit из системы" cover it too. Themes
-  are not checked on any Windows build yet, and the screen says so.
+- **Themes: cursors and sounds.** The "Windows" screen has a "Темы" tab. Its
+  cursor sets are the ones Windows ships (Windows Aero, Black and Inverted, in
+  regular, large and extra large), each with a picture of a few of its
+  cursors. Apply one and the cursors change at once, with no sign-out. "Без
+  звуков" silences the sound of every Windows event that has one, signing in
+  and unlocking included, and leaves the alarm and ringtone melodies alone.
+  "Вернуть" gives back exactly what was there before LimeKit, cursors and
+  sounds that were empty or not set at all included. Cursors and sounds go on
+  and off independently. A theme goes through the same journal as a tweak, so
+  "Вернуть всё", the `.reg` undo and "Убрать LimeKit из системы" cover it too.
+  Themes are not checked on any Windows build yet, and the screen says so.
 
 ### Changed
 

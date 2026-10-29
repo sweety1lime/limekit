@@ -156,9 +156,14 @@ interface UndoAll {
   restart_explorer: boolean;
 }
 
+type ThemePart = "cursors" | "sounds";
+
 interface ThemeView {
+  part: ThemePart;
   id: string;
   title: string;
+  description: string;
+  source: "windows" | "lime_kit";
   availability: Availability;
   applied: boolean;
   // Roles the card can show a picture of, by registry name.
@@ -168,11 +173,14 @@ interface ThemeView {
 interface ThemesView {
   windows: string;
   themes: ThemeView[];
-  drift: string[];
+  drift: { part: ThemePart; id: string }[];
 }
 
 interface ThemeLine {
+  // The cursor role or the sound event, by registry name.
   role: string;
+  // What Windows calls a sound event; cursors are named here.
+  label: string | null;
   current: RegValue | null;
   next: RegValue | null;
 }
@@ -1109,15 +1117,21 @@ function roleText(role: string): string {
   return key ? t(key) : role;
 }
 
-// A journal target such as `HKCU\Control Panel\Cursors\Arrow`, as its role.
+// A journal target as words: `HKCU\Control Panel\Cursors\Arrow` is a cursor
+// role, `...\SystemAsterisk\.Current` a sound event, which keeps its own name.
 function targetText(target: string): string {
-  return roleText(target.split("\\").pop() ?? target);
+  const segments = target.split("\\");
+  const last = segments.pop() ?? target;
+  if (last === ".Current") return segments.pop() ?? target;
+  return roleText(last);
 }
 
-// A cursor value as a file name; the empty string is the built-in cursor.
-function describeCursor(value: RegValue | null): string {
+// A theme value as a file name. The empty string is the built-in cursor, or
+// silence for a sound.
+function describeThemeValue(part: ThemePart, value: RegValue | null): string {
   if (value?.type === "sz" || value?.type === "expand_sz") {
-    return value.data === "" ? t("themes.builtin") : (value.data.split(/[\\/]/).pop() ?? value.data);
+    if (value.data === "") return t(part === "sounds" ? "themes.silent" : "themes.builtin");
+    return value.data.split(/[\\/]/).pop() ?? value.data;
   }
   return describeValue(value);
 }
@@ -1129,7 +1143,7 @@ function themeUsable(theme: ThemeView): boolean {
 async function loadThemes() {
   themesError = null;
   try {
-    themesView = await invoke<ThemesView>("themes_view");
+    themesView = await invoke<ThemesView>("themes_view", { lang });
   } catch (error) {
     themesError = String(error);
   }
@@ -1146,11 +1160,23 @@ function buildThemesBody(): HTMLElement {
     const view = themesView;
     const list = h("div", { class: "tweak-list" }, h("p", { class: "tweaks-intro" }, t("themes.intro")));
     if (view.drift.length) {
-      const names = view.drift.map((id) => view.themes.find((theme) => theme.id === id)?.title ?? id);
+      const names = view.drift.map(
+        (item) => view.themes.find((theme) => theme.part === item.part && theme.id === item.id)?.title ?? item.id,
+      );
       list.append(h("div", { class: "tweaks-drift" }, t("themes.drift", { list: names.join(", ") })));
     }
     if (view.themes.length === 0) list.append(h("div", { class: "grid-empty" }, t("themes.empty")));
-    for (const theme of view.themes) list.append(renderTheme(theme));
+    // Sounds come first: one card, which would be lost below a dozen cursor sets.
+    const parts: [ThemePart, Key][] = [
+      ["sounds", "themes.partSounds"],
+      ["cursors", "themes.partCursors"],
+    ];
+    for (const [part, label] of parts) {
+      const themes = view.themes.filter((theme) => theme.part === part);
+      if (themes.length === 0) continue;
+      list.append(h("div", { class: "section-label tweak-category" }, t(label)));
+      for (const theme of themes) list.append(renderTheme(theme));
+    }
     body.append(list);
   }
   return body;
@@ -1183,14 +1209,20 @@ function renderTheme(theme: ThemeView): HTMLElement {
     h(
       "div",
       { class: "setting-row" },
-      h("div", { class: "tweak-text" }, h("div", { class: "setting-name" }, theme.title), pictures),
+      h(
+        "div",
+        { class: "tweak-text" },
+        h("div", { class: "setting-name" }, theme.title),
+        theme.description ? h("div", { class: "setting-desc" }, theme.description) : null,
+        pictures,
+      ),
       control,
     ),
     h(
       "div",
       { class: "tweak-chips" },
-      h("span", { class: "format-chip" }, t("themes.source")),
-      h("span", { class: "format-chip" }, t("themes.cursors")),
+      h("span", { class: "format-chip" }, t(theme.source === "windows" ? "themes.fromWindows" : "themes.fromLimeKit")),
+      h("span", { class: "format-chip" }, t(theme.part === "sounds" ? "themes.sounds" : "themes.cursors")),
       h(
         "span",
         { class: "format-chip" + (theme.availability.kind === "verified" ? " accent" : "") },
@@ -1220,13 +1252,16 @@ async function loadCursorImage(theme: string, role: string, slot: HTMLElement) {
 // Shows what will change and asks before touching anything.
 async function switchTheme(theme: ThemeView, on: boolean) {
   if (themeBusy) return;
-  const preview = await call<ThemePreview>("theme_preview", { id: theme.id, on });
+  const preview = await call<ThemePreview>("theme_preview", { part: theme.part, id: theme.id, on, lang });
   const parts = [t("confirm.changes")];
   if (preview.lines.length === 0) {
     parts.push(t("themes.nothing"));
   } else {
+    // One line each: a set can change 17 cursors or two dozen sounds, and a
+    // taller message would not fit a small screen.
     for (const line of preview.lines) {
-      parts.push(`${roleText(line.role)}\n    ${describeCursor(line.current)} → ${describeCursor(line.next)}`);
+      const name = line.label ?? roleText(line.role);
+      parts.push(`${name}: ${describeThemeValue(theme.part, line.current)} → ${describeThemeValue(theme.part, line.next)}`);
     }
   }
   if (preview.replaces) parts.push("", t("themes.replaces", { title: preview.replaces }));
@@ -1243,7 +1278,7 @@ async function switchTheme(theme: ThemeView, on: boolean) {
   themeBusy = theme.id;
   renderContent();
   try {
-    reportThemeSwitch(theme, on, await call<SwitchOutcome>("theme_switch", { id: theme.id, on }));
+    reportThemeSwitch(theme, on, await call<SwitchOutcome>("theme_switch", { part: theme.part, id: theme.id, on }));
   } catch {
     // error text is already shown by call()
   } finally {

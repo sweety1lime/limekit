@@ -13,8 +13,8 @@ const strings = {
   "windows.tabThemes": { ru: "Темы", en: "Themes" },
   "strip.title": { ru: "Настройка Windows", en: "Customize Windows" },
   "strip.sub": {
-    ru: "Твики системы и темы курсоров. Любое изменение можно отменить.",
-    en: "System tweaks and cursor themes. Every change can be undone.",
+    ru: "Твики системы, темы курсоров и звуков. Любое изменение можно отменить.",
+    en: "System tweaks, cursor and sound themes. Every change can be undone.",
   },
   "strip.tweaks": { ru: "Твики Windows", en: "Windows tweaks" },
   "strip.themes": { ru: "Темы", en: "Themes" },
@@ -138,16 +138,18 @@ const strings = {
   },
 
   "themes.intro": {
-    ru: "Тема меняет курсоры. LimeKit сначала записывает каждое изменение в журнал, поэтому его можно отменить. Права администратора не нужны: меняются только настройки вашей учётной записи.",
-    en: "A theme changes the cursors. LimeKit writes every change to a journal first, so it can be undone. No admin rights needed: only your account's settings change.",
+    ru: "Тема меняет курсоры или звуки Windows. LimeKit сначала записывает каждое изменение в журнал, поэтому его можно отменить. Права администратора не нужны: меняются только настройки вашей учётной записи.",
+    en: "A theme changes the cursors or the sounds of Windows. LimeKit writes every change to a journal first, so it can be undone. No admin rights needed: only your account's settings change.",
   },
-  "themes.loading": { ru: "Читаю схемы курсоров…", en: "Reading cursor schemes…" },
-  "themes.empty": {
-    ru: "Windows не назвала ни одной схемы курсоров.",
-    en: "Windows did not list any cursor schemes.",
-  },
-  "themes.source": { ru: "из Windows", en: "from Windows" },
+  "themes.loading": { ru: "Читаю темы…", en: "Reading themes…" },
+  "themes.empty": { ru: "Windows не назвала ни одной темы.", en: "Windows did not list any themes." },
+  "themes.partCursors": { ru: "Курсоры", en: "Cursors" },
+  "themes.partSounds": { ru: "Звуки", en: "Sounds" },
+  "themes.fromWindows": { ru: "из Windows", en: "from Windows" },
+  "themes.fromLimeKit": { ru: "встроенная тема", en: "built-in theme" },
   "themes.cursors": { ru: "курсоры", en: "cursors" },
+  "themes.sounds": { ru: "звуки", en: "sounds" },
+  "themes.silent": { ru: "без звука", en: "silent" },
   "themes.apply": { ru: "Применить", en: "Apply" },
   "themes.revert": { ru: "Вернуть", en: "Put back" },
   "themes.applied": {
@@ -156,8 +158,8 @@ const strings = {
   },
   "themes.builtin": { ru: "встроенный", en: "built-in" },
   "themes.nothing": {
-    ru: "Ничего не изменится: эти курсоры уже стоят.",
-    en: "Nothing changes: these cursors are already set.",
+    ru: "Ничего не изменится: всё уже так, как в теме.",
+    en: "Nothing changes: everything is already as the theme has it.",
   },
   "themes.replaces": {
     ru: "Сейчас применена тема «{title}», LimeKit сначала снимет её.",

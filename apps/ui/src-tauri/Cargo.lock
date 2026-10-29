@@ -3720,6 +3720,7 @@ dependencies = [
 name = "themes"
 version = "0.3.1"
 dependencies = [
+ "platform",
  "thiserror 2.0.18",
  "tweaks",
 ]

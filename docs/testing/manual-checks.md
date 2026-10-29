@@ -181,6 +181,24 @@ On the **Windows** screen, tab **Темы**:
 8. Check a set whose cursors include an animated one (Windows Aero has
    `.ani` for busy and working): it plays after the reload.
 
+For **Без звуков**, in the **Звуки** section, with the registry saved first
+(`reg export "HKCU\AppEvents\Schemes\Apps" sounds-before.reg`):
+
+1. The confirmation lists the events that make a sound now, one line each, named
+   as the Sound dialog names them. The alarm and ringtone melodies
+   (`Notification.Looping.*`) are not among them.
+2. Play a system sound before and after applying it:
+   `powershell -c "[System.Media.SystemSounds]::Asterisk.Play(); Start-Sleep 1"`.
+   It is audible before, silent after, and audible again after **Вернуть**,
+   all without restarting anything.
+3. Open Control Panel → Sound → Sounds (`control mmsys.cpl,,2`) with the theme
+   on: the events that had a sound show none.
+4. Export the registry again after **Вернуть** and compare: it is identical,
+   `REG_EXPAND_SZ` values included.
+5. Apply it, pick a sound for one event in the Sound dialog, and press
+   **Вернуть**: the screen names that event as changed and keeps your choice.
+6. Apply a cursor set and **Без звуков**, put back one of them: the other stays.
+
 ## Politeness
 
 See `docs/research/politeness.md` for the rules.
