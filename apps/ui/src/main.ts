@@ -156,6 +156,32 @@ interface UndoAll {
   restart_explorer: boolean;
 }
 
+interface ThemeView {
+  id: string;
+  title: string;
+  availability: Availability;
+  applied: boolean;
+  // Roles the card can show a picture of, by registry name.
+  pictures: string[];
+}
+
+interface ThemesView {
+  windows: string;
+  themes: ThemeView[];
+  drift: string[];
+}
+
+interface ThemeLine {
+  role: string;
+  current: RegValue | null;
+  next: RegValue | null;
+}
+
+interface ThemePreview {
+  lines: ThemeLine[];
+  replaces: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // tiny hyperscript helper — keeps the vanilla DOM building readable
 // ---------------------------------------------------------------------------
@@ -231,11 +257,17 @@ let galleryPacks: GalleryPack[] = [];
 let galleryLoading = false;
 let galleryError: string | null = null;
 const galleryDownloaded = new Set<string>(); // gallery pack ids, this session
-let tweaksOpen = false;
+let windowsOpen = false; // the Windows screen: tweaks and themes
+let windowsTab: "tweaks" | "themes" = "tweaks";
 let tweaksView: TweaksView | null = null;
 let tweaksError: string | null = null;
 let tweakBusy: string | null = null; // id of the tweak being switched
 let explorerRestartPending = false; // a switched tweak shows only after Explorer restarts
+let themesView: ThemesView | null = null;
+let themesError: string | null = null;
+let themeBusy: string | null = null; // id of the theme being switched
+// Cursor pictures by "<theme>/<role>"; null: the set has no picture of that role.
+const cursorImages = new Map<string, string | null>();
 // Library item ids that came from the gallery — persisted, drives the
 // "✓ из каталога" badge on library cards.
 const galleryVerified = new Set<string>(readJson<string[]>("lw-gallery-verified", []));
@@ -506,9 +538,9 @@ function adoptSessionControls(monitor: number) {
 
 function renderContent() {
   content.replaceChildren();
-  // Tweaks need no wallpaper daemon, so they open even without one.
-  if (tweaksOpen) {
-    content.append(buildTweaks());
+  // Tweaks and themes need no wallpaper daemon, so they open even without one.
+  if (windowsOpen) {
+    content.append(buildWindows());
     return;
   }
   if (!connected) {
@@ -529,7 +561,7 @@ function renderContent() {
 
 function openGallery() {
   if (!connected) return;
-  tweaksOpen = false;
+  windowsOpen = false;
   galleryOpen = true;
   // Show the last-seen catalog instantly, then refresh in the background.
   if (galleryPacks.length === 0) galleryPacks = readJson<GalleryPack[]>("lw-catalog-cache", []);
@@ -727,16 +759,23 @@ const EDITION_NAMES: Record<string, string> = {
   server: "Server",
 };
 
-function openTweaks() {
+function openWindows(tab?: "tweaks" | "themes") {
+  if (tab) windowsTab = tab;
   galleryOpen = false;
-  tweaksOpen = true;
+  windowsOpen = true;
   renderContent();
-  void loadTweaks();
+  void (windowsTab === "themes" ? loadThemes() : loadTweaks());
 }
 
-function closeTweaks() {
-  tweaksOpen = false;
+function closeWindows() {
+  windowsOpen = false;
   renderContent();
+}
+
+function selectWindowsTab(tab: "tweaks" | "themes") {
+  windowsTab = tab;
+  renderContent();
+  void (tab === "themes" ? loadThemes() : loadTweaks());
 }
 
 async function loadTweaks() {
@@ -746,7 +785,7 @@ async function loadTweaks() {
   } catch (error) {
     tweaksError = String(error);
   }
-  if (tweaksOpen) renderContent();
+  if (windowsOpen) renderContent();
 }
 
 function usable(tweak: TweakView): boolean {
@@ -797,21 +836,47 @@ function describeValue(value: RegValue | null): string {
   }
 }
 
-function buildTweaks(): HTMLElement {
+// The Windows screen: tweaks and themes share its head, since undoing and the
+// .reg export cover both.
+function buildWindows(): HTMLElement {
+  const windows = (tweaksView ?? themesView)?.windows;
   const head = h(
     "div",
     { class: "gallery-head" },
-    h("button", { class: "btn-ghost small", type: "button", onClick: () => closeTweaks() }, t("tweaks.back")),
+    h("button", { class: "btn-ghost small", type: "button", onClick: () => closeWindows() }, t("tweaks.back")),
     h(
       "div",
       { class: "gallery-title" },
-      t("tweaks.title"),
-      tweaksView?.windows ? h("span", { class: "tweaks-windows" }, tweaksView.windows) : null,
+      t("windows.title"),
+      windows ? h("span", { class: "tweaks-windows" }, windows) : null,
     ),
     h("button", { class: "btn-ghost small", type: "button", onClick: () => void exportUndo() }, t("tweaks.exportUndo")),
     h("button", { class: "btn-ghost small", type: "button", onClick: () => void undoAll() }, t("tweaks.undoAll")),
   );
+  const tabs = h("div", { class: "tabs" });
+  const tabDefs: ["tweaks" | "themes", string][] = [
+    ["tweaks", t("windows.tabTweaks")],
+    ["themes", t("windows.tabThemes")],
+  ];
+  for (const [key, label] of tabDefs) {
+    tabs.append(
+      h(
+        "button",
+        { class: "tab" + (windowsTab === key ? " active" : ""), type: "button", onClick: () => selectWindowsTab(key) },
+        label,
+      ),
+    );
+  }
+  return h(
+    "div",
+    { class: "gallery" },
+    head,
+    h("div", { class: "library-head" }, tabs),
+    windowsTab === "themes" ? buildThemesBody() : buildTweaksBody(),
+  );
+}
 
+function buildTweaksBody(): HTMLElement {
   const body = h("div", { class: "grid-scroll" });
   if (tweaksError) {
     body.append(h("div", { class: "grid-empty" }, tweaksError));
@@ -847,7 +912,7 @@ function buildTweaks(): HTMLElement {
     }
     body.append(list);
   }
-  return h("div", { class: "gallery" }, head, body);
+  return body;
 }
 
 function renderTweak(tweak: TweakView): HTMLElement {
@@ -1000,7 +1065,7 @@ async function restartExplorer() {
   } catch {
     // error text is already shown by call()
   }
-  if (tweaksOpen) renderContent();
+  if (windowsOpen) renderContent();
 }
 
 async function exportUndo() {
@@ -1012,6 +1077,223 @@ async function exportUndo() {
   if (typeof path !== "string") return;
   await call<void>("tweaks_export_undo", { path });
   report(t("export.done", { path }));
+}
+
+// ---------------------------------------------------------------------------
+// themes
+// ---------------------------------------------------------------------------
+
+// Cursor roles by registry name, in the words of the Mouse dialog.
+const ROLE_TEXT: Record<string, Key> = {
+  Arrow: "cursor.Arrow",
+  Help: "cursor.Help",
+  AppStarting: "cursor.AppStarting",
+  Wait: "cursor.Wait",
+  Crosshair: "cursor.Crosshair",
+  IBeam: "cursor.IBeam",
+  NWPen: "cursor.NWPen",
+  No: "cursor.No",
+  SizeNS: "cursor.SizeNS",
+  SizeWE: "cursor.SizeWE",
+  SizeNWSE: "cursor.SizeNWSE",
+  SizeNESW: "cursor.SizeNESW",
+  SizeAll: "cursor.SizeAll",
+  UpArrow: "cursor.UpArrow",
+  Hand: "cursor.Hand",
+  Pin: "cursor.Pin",
+  Person: "cursor.Person",
+};
+
+function roleText(role: string): string {
+  const key = ROLE_TEXT[role];
+  return key ? t(key) : role;
+}
+
+// A journal target such as `HKCU\Control Panel\Cursors\Arrow`, as its role.
+function targetText(target: string): string {
+  return roleText(target.split("\\").pop() ?? target);
+}
+
+// A cursor value as a file name; the empty string is the built-in cursor.
+function describeCursor(value: RegValue | null): string {
+  if (value?.type === "sz" || value?.type === "expand_sz") {
+    return value.data === "" ? t("themes.builtin") : (value.data.split(/[\\/]/).pop() ?? value.data);
+  }
+  return describeValue(value);
+}
+
+function themeUsable(theme: ThemeView): boolean {
+  return theme.availability.kind === "verified" || theme.availability.kind === "unverified";
+}
+
+async function loadThemes() {
+  themesError = null;
+  try {
+    themesView = await invoke<ThemesView>("themes_view");
+  } catch (error) {
+    themesError = String(error);
+  }
+  if (windowsOpen) renderContent();
+}
+
+function buildThemesBody(): HTMLElement {
+  const body = h("div", { class: "grid-scroll" });
+  if (themesError) {
+    body.append(h("div", { class: "grid-empty" }, themesError));
+  } else if (!themesView) {
+    body.append(h("div", { class: "grid-empty" }, t("themes.loading")));
+  } else {
+    const view = themesView;
+    const list = h("div", { class: "tweak-list" }, h("p", { class: "tweaks-intro" }, t("themes.intro")));
+    if (view.drift.length) {
+      const names = view.drift.map((id) => view.themes.find((theme) => theme.id === id)?.title ?? id);
+      list.append(h("div", { class: "tweaks-drift" }, t("themes.drift", { list: names.join(", ") })));
+    }
+    if (view.themes.length === 0) list.append(h("div", { class: "grid-empty" }, t("themes.empty")));
+    for (const theme of view.themes) list.append(renderTheme(theme));
+    body.append(list);
+  }
+  return body;
+}
+
+function renderTheme(theme: ThemeView): HTMLElement {
+  const pictures = h("div", { class: "theme-pictures" });
+  for (const role of theme.pictures) {
+    // A slot per role keeps the order whichever picture arrives first.
+    const slot = h("span", { class: "theme-slot" });
+    pictures.append(slot);
+    void loadCursorImage(theme.id, role, slot);
+  }
+  const usable = themeUsable(theme);
+  const control = usable
+    ? h(
+        "button",
+        {
+          class: theme.applied ? "btn-ghost small" : "btn-primary small",
+          type: "button",
+          disabled: themeBusy ? "true" : undefined,
+          onClick: () => void switchTheme(theme, !theme.applied),
+        },
+        t(theme.applied ? "themes.revert" : "themes.apply"),
+      )
+    : null;
+  return h(
+    "div",
+    { class: "setting-card tweak-card theme-card" + (usable ? "" : " unavailable") },
+    h(
+      "div",
+      { class: "setting-row" },
+      h("div", { class: "tweak-text" }, h("div", { class: "setting-name" }, theme.title), pictures),
+      control,
+    ),
+    h(
+      "div",
+      { class: "tweak-chips" },
+      h("span", { class: "format-chip" }, t("themes.source")),
+      h("span", { class: "format-chip" }, t("themes.cursors")),
+      h(
+        "span",
+        { class: "format-chip" + (theme.availability.kind === "verified" ? " accent" : "") },
+        availabilityText(theme.availability),
+      ),
+    ),
+    theme.applied ? h("div", { class: "setting-hint lime" }, t("themes.applied")) : null,
+  );
+}
+
+// A card works without its pictures, so one that cannot be loaded just goes.
+async function loadCursorImage(theme: string, role: string, slot: HTMLElement) {
+  const key = `${theme}/${role}`;
+  let url = cursorImages.get(key);
+  if (url === undefined) {
+    try {
+      url = await invoke<string | null>("theme_cursor_image", { id: theme, role });
+    } catch {
+      url = null;
+    }
+    cursorImages.set(key, url);
+  }
+  if (url) slot.append(h("img", { class: "theme-picture", src: url, alt: roleText(role), title: roleText(role) }));
+  else slot.remove();
+}
+
+// Shows what will change and asks before touching anything.
+async function switchTheme(theme: ThemeView, on: boolean) {
+  if (themeBusy) return;
+  const preview = await call<ThemePreview>("theme_preview", { id: theme.id, on });
+  const parts = [t("confirm.changes")];
+  if (preview.lines.length === 0) {
+    parts.push(t("themes.nothing"));
+  } else {
+    for (const line of preview.lines) {
+      parts.push(`${roleText(line.role)}\n    ${describeCursor(line.current)} → ${describeCursor(line.next)}`);
+    }
+  }
+  if (preview.replaces) parts.push("", t("themes.replaces", { title: preview.replaces }));
+  if (!on) parts.push("", t("confirm.revert"));
+  if (on && theme.availability.kind === "unverified") parts.push("", t("themes.unverified"));
+  const proceed = await ask(parts.join("\n"), {
+    title: t(on ? "themes.onTitle" : "themes.offTitle", { title: theme.title }),
+    kind: "info",
+    okLabel: t(on ? "themes.apply" : "themes.revert"),
+    cancelLabel: t("confirm.cancel"),
+  });
+  if (!proceed) return;
+
+  themeBusy = theme.id;
+  renderContent();
+  try {
+    reportThemeSwitch(theme, on, await call<SwitchOutcome>("theme_switch", { id: theme.id, on }));
+  } catch {
+    // error text is already shown by call()
+  } finally {
+    themeBusy = null;
+    await loadThemes();
+  }
+}
+
+function reportThemeSwitch(theme: ThemeView, on: boolean, outcome: SwitchOutcome) {
+  switch (outcome.result) {
+    case "done":
+      report(t(on ? "themes.outcomeOn" : "themes.outcomeOff", { title: theme.title }));
+      break;
+    case "already_set":
+      report(t("outcome.already"));
+      break;
+    case "changed_since":
+      report(t("outcome.changedSince", { list: outcome.targets.map(targetText).join(", ") }), true);
+      break;
+    case "access_denied":
+      report(t("outcome.accessDenied", { target: targetText(outcome.target) }), true);
+      break;
+    case "not_taken":
+      report(t("outcome.notTaken", { target: targetText(outcome.target) }), true);
+      break;
+    case "not_available":
+      report(t("themes.notAvailable"), true);
+      break;
+  }
+}
+
+// The way into tweaks and themes from the main screen, so nobody has to guess
+// what the small "Windows" button in the title bar does.
+function buildWindowsStrip(): HTMLElement {
+  return h(
+    "div",
+    { class: "windows-strip" },
+    h(
+      "div",
+      { class: "windows-strip-text" },
+      h("div", { class: "windows-strip-title" }, t("strip.title")),
+      h("div", { class: "windows-strip-sub" }, t("strip.sub")),
+    ),
+    h(
+      "div",
+      { class: "windows-strip-actions" },
+      h("button", { class: "btn-ghost small", type: "button", onClick: () => openWindows("tweaks") }, t("strip.tweaks")),
+      h("button", { class: "btn-ghost small", type: "button", onClick: () => openWindows("themes") }, t("strip.themes")),
+    ),
+  );
 }
 
 function buildOffline(): HTMLElement {
@@ -1079,6 +1361,7 @@ function buildEmpty(): HTMLElement {
         ),
       ),
     ),
+    buildWindowsStrip(),
   );
 }
 
@@ -1404,6 +1687,7 @@ function buildLibrary(): HTMLElement {
     head,
     playlistPopoverOpen && shown.length >= 2 ? buildPlaylistPopover(shown) : null,
     h("div", { class: "grid-scroll" }, grid),
+    buildWindowsStrip(),
   );
 }
 
@@ -2120,9 +2404,9 @@ function wireTitlebar() {
   close.addEventListener("click", () => void win.close());
   document.getElementById("settings-open")!.addEventListener("click", () => openSettings());
   document.getElementById("gallery-open")!.addEventListener("click", () => openGallery());
-  const tweaksButton = document.getElementById("tweaks-open")!;
-  tweaksButton.textContent = t("nav.tweaks");
-  tweaksButton.addEventListener("click", () => openTweaks());
+  const windowsButton = document.getElementById("windows-open")!;
+  windowsButton.textContent = t("nav.windows");
+  windowsButton.addEventListener("click", () => openWindows());
 }
 
 // ---------------------------------------------------------------------------

@@ -7,8 +7,17 @@ export type Lang = "ru" | "en";
 export const lang: Lang = "ru";
 
 const strings = {
-  "nav.tweaks": { ru: "Твики", en: "Tweaks" },
-  "tweaks.title": { ru: "Твики Windows", en: "Windows tweaks" },
+  "nav.windows": { ru: "Windows", en: "Windows" },
+  "windows.title": { ru: "Настройка Windows", en: "Customize Windows" },
+  "windows.tabTweaks": { ru: "Твики", en: "Tweaks" },
+  "windows.tabThemes": { ru: "Темы", en: "Themes" },
+  "strip.title": { ru: "Настройка Windows", en: "Customize Windows" },
+  "strip.sub": {
+    ru: "Твики системы и темы курсоров. Любое изменение можно отменить.",
+    en: "System tweaks and cursor themes. Every change can be undone.",
+  },
+  "strip.tweaks": { ru: "Твики Windows", en: "Windows tweaks" },
+  "strip.themes": { ru: "Темы", en: "Themes" },
   "tweaks.back": { ru: "← Библиотека", en: "← Library" },
   "tweaks.intro": {
     ru: "Каждое изменение LimeKit сначала записывает в журнал, поэтому его можно отменить. Права администратора не нужны: меняются только настройки вашей учётной записи.",
@@ -127,6 +136,64 @@ const strings = {
     ru: "Откат сохранён. Двойной щелчок по файлу вернёт значения и без LimeKit: {path}",
     en: "Undo saved. Double-clicking the file puts the values back, LimeKit or not: {path}",
   },
+
+  "themes.intro": {
+    ru: "Тема меняет курсоры. LimeKit сначала записывает каждое изменение в журнал, поэтому его можно отменить. Права администратора не нужны: меняются только настройки вашей учётной записи.",
+    en: "A theme changes the cursors. LimeKit writes every change to a journal first, so it can be undone. No admin rights needed: only your account's settings change.",
+  },
+  "themes.loading": { ru: "Читаю схемы курсоров…", en: "Reading cursor schemes…" },
+  "themes.empty": {
+    ru: "Windows не назвала ни одной схемы курсоров.",
+    en: "Windows did not list any cursor schemes.",
+  },
+  "themes.source": { ru: "из Windows", en: "from Windows" },
+  "themes.cursors": { ru: "курсоры", en: "cursors" },
+  "themes.apply": { ru: "Применить", en: "Apply" },
+  "themes.revert": { ru: "Вернуть", en: "Put back" },
+  "themes.applied": {
+    ru: "применена через LimeKit, «Вернуть» вернёт как было",
+    en: "applied by LimeKit; Put back restores what was there",
+  },
+  "themes.builtin": { ru: "встроенный", en: "built-in" },
+  "themes.nothing": {
+    ru: "Ничего не изменится: эти курсоры уже стоят.",
+    en: "Nothing changes: these cursors are already set.",
+  },
+  "themes.replaces": {
+    ru: "Сейчас применена тема «{title}», LimeKit сначала снимет её.",
+    en: "The theme “{title}” is applied now; LimeKit takes it off first.",
+  },
+  "themes.unverified": {
+    ru: "Темы ещё не проверяли на вашей сборке Windows. Если что-то пойдёт не так, тему можно отменить.",
+    en: "Nobody has checked themes on your Windows build yet. If something goes wrong, the theme can be undone.",
+  },
+  "themes.onTitle": { ru: "Применить тему: {title}", en: "Apply theme: {title}" },
+  "themes.offTitle": { ru: "Вернуть: {title}", en: "Put back: {title}" },
+  "themes.outcomeOn": { ru: "Применена тема: {title}", en: "Theme applied: {title}" },
+  "themes.outcomeOff": { ru: "Тема снята: {title}", en: "Theme taken off: {title}" },
+  "themes.notAvailable": { ru: "Темы не для вашей Windows", en: "Themes are not for your Windows" },
+  "themes.drift": {
+    ru: "Windows или другая программа поменяли то, что поставила тема: {list}.",
+    en: "Windows or another program changed what a theme had set: {list}.",
+  },
+
+  "cursor.Arrow": { ru: "Основной режим", en: "Normal select" },
+  "cursor.Help": { ru: "Выбор справки", en: "Help select" },
+  "cursor.AppStarting": { ru: "Фоновый режим", en: "Working in background" },
+  "cursor.Wait": { ru: "Занят", en: "Busy" },
+  "cursor.Crosshair": { ru: "Точное выделение", en: "Precision select" },
+  "cursor.IBeam": { ru: "Выделение текста", en: "Text select" },
+  "cursor.NWPen": { ru: "Рукописный ввод", en: "Handwriting" },
+  "cursor.No": { ru: "Недоступно", en: "Unavailable" },
+  "cursor.SizeNS": { ru: "Изменение размера по вертикали", en: "Vertical resize" },
+  "cursor.SizeWE": { ru: "Изменение размера по горизонтали", en: "Horizontal resize" },
+  "cursor.SizeNWSE": { ru: "Диагональное изменение размера 1", en: "Diagonal resize 1" },
+  "cursor.SizeNESW": { ru: "Диагональное изменение размера 2", en: "Diagonal resize 2" },
+  "cursor.SizeAll": { ru: "Перемещение", en: "Move" },
+  "cursor.UpArrow": { ru: "Альтернативное выделение", en: "Alternate select" },
+  "cursor.Hand": { ru: "Выбор ссылки", en: "Link select" },
+  "cursor.Pin": { ru: "Выбор места", en: "Location select" },
+  "cursor.Person": { ru: "Выбор человека", en: "Person select" },
 } as const;
 
 export type Key = keyof typeof strings;

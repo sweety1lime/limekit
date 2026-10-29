@@ -1548,3 +1548,49 @@ body.dragging .dropzone {
 .tweak-card.unavailable .tweak-chips {
   opacity: 0.55;
 }
+
+/* Cursor pictures on a theme's card, drawn at their own size. */
+.theme-pictures {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.theme-picture {
+  max-height: 48px;
+  width: auto;
+}
+
+/* The way into tweaks and themes from the main screen. */
+.windows-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.empty-wrap .windows-strip {
+  margin-top: 14px;
+}
+
+.windows-strip-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.windows-strip-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.windows-strip-actions {
+  display: flex;
+  gap: 8px;
+}

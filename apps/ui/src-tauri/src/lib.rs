@@ -4,6 +4,7 @@ mod daemon_client;
 mod diagnostics;
 mod gallery;
 mod library;
+mod theme_panel;
 mod tweak_panel;
 
 use std::path::{Path, PathBuf};
@@ -504,6 +505,10 @@ pub fn run() {
             tweak_panel::tweaks_export_undo,
             tweak_panel::tweak_open_settings,
             tweak_panel::restart_explorer,
+            theme_panel::themes_view,
+            theme_panel::theme_cursor_image,
+            theme_panel::theme_preview,
+            theme_panel::theme_switch,
         ])
         .setup(|app| {
             use tauri::Manager;

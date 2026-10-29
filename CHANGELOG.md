@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Themes: cursors.** The "Windows" screen has a "Темы" tab that lists the
+  cursor sets Windows ships (Windows Aero, Black and Inverted, in regular,
+  large and extra large), each with a picture of a few of its cursors. Apply
+  one and the cursors change at once, with no sign-out. "Вернуть" gives back
+  exactly what was there before LimeKit, cursors that were empty or not set at
+  all included. A theme goes through the same journal as a tweak, so "Вернуть
+  всё", the `.reg` undo and "Убрать LimeKit из системы" cover it too. Themes
+  are not checked on any Windows build yet, and the screen says so.
+
+### Changed
+
+- The "Твики" button in the title bar is now "Windows": tweaks and themes sit
+  on one screen with two tabs. The main screen has a strip, "Настройка
+  Windows", with "Твики Windows" and "Темы" buttons under the library and
+  under the drop zone of an empty library, so the way in is not only the small
+  title-bar button.
+
+### For developers
+
+- New crate `crates/themes`; `platform::cursors` reads the schemes Windows
+  ships, and `platform::shell` can reload cursors and resolve `@file,-id`
+  strings. The design is in `docs/research/themes.md`.
+
 ## 0.3.1 — 36 tweaks, and two that Explorer no longer undoes
 
 17 more tweaks, 36 in all, 33 of them checked on Windows 10 22H2. File

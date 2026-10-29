@@ -3717,6 +3717,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "themes"
+version = "0.3.1"
+dependencies = [
+ "thiserror 2.0.18",
+ "tweaks",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4120,6 +4128,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tempfile",
+ "themes",
  "tweaks",
  "ureq",
  "windows-registry",

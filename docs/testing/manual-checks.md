@@ -143,6 +143,44 @@ Then, once per build:
    `ShellState` after a switch (`docs/research/tweaks-catalog.md`). Switch each
    one off and open the dialog again: they must stay off.
 
+## Themes
+
+A theme counts as verified on a build only after this pass (see
+`docs/research/themes.md`); then add the build to `VERIFIED_BUILDS` in
+`crates/themes/src/lib.rs`. The pass changes the real cursors, although each
+step is undone. Save the registry first and compare at the end:
+
+```text
+reg query "HKCU\Control Panel\Cursors" > cursors-before.txt
+```
+
+The main screen has a strip, **Настройка Windows**, under the library, and
+under the drop zone when the library is empty. **Твики Windows** and **Темы**
+open the matching tab of the **Windows** screen; the **Windows** button in the
+title bar opens the tab that was open last.
+
+On the **Windows** screen, tab **Темы**:
+
+1. The cards show a few cursors of each set, and the Windows build is named in
+   the head. A set you pick lists, in the confirmation, only the cursors that
+   change, with file names.
+2. Apply a set. The pointer over the desktop and over a text field changes at
+   once, without signing out. In Mouse Properties → Pointers the list shows
+   the set's cursors.
+3. Run the `reg query` again. LimeKit's values must be what Windows holds, so
+   Windows did not rewrite them when it reloaded the cursors.
+4. Apply a second set while the first is on. The confirmation names the first
+   one, and afterwards only the second is in effect.
+5. Press **Вернуть**. Every cursor is as in `cursors-before.txt`, `Crosshair`
+   and `IBeam` (empty strings) and `Pin` and `Person` (not set) included.
+6. Apply a set, then change one cursor in Mouse Properties. The screen names
+   that cursor as changed, and **Вернуть** leaves your choice alone.
+7. Apply a set and press **Вернуть всё** on the **Твики** tab: the cursors come
+   back at once. Save **Откат в .reg** with a set applied and import the file
+   later: the values come back, the cursors at the next sign-in.
+8. Check a set whose cursors include an animated one (Windows Aero has
+   `.ani` for busy and working): it plays after the reload.
+
 ## Politeness
 
 See `docs/research/politeness.md` for the rules.

@@ -27,7 +27,7 @@ pub fn journal_path() -> Option<PathBuf> {
     )
 }
 
-fn with_engine<T>(
+pub(crate) fn with_engine<T>(
     state: &TweakEngine,
     work: impl FnOnce(&mut Engine<CurrentUser>) -> Result<T, String>,
 ) -> Result<T, String> {
@@ -122,7 +122,7 @@ impl From<Availability> for AvailabilityView {
     }
 }
 
-fn describe_windows(version: &WindowsVersion) -> String {
+pub(crate) fn describe_windows(version: &WindowsVersion) -> String {
     let name = if version.build >= 22000 {
         "Windows 11"
     } else {
@@ -187,7 +187,9 @@ pub async fn tweaks_view(
                 .entries()
                 .iter()
                 .find(|entry| entry.id == item.entry)
-                .map(|entry| entry.tweak.clone());
+                .map(|entry| entry.tweak.clone())
+                // Themes share the journal and have their own screen.
+                .filter(|tweak| !themes::is_theme_entry(tweak));
             if let Some(tweak) = tweak
                 && !drift.contains(&tweak)
             {
@@ -390,6 +392,14 @@ fn undo_all(engine: &mut Engine<CurrentUser>) -> Result<UndoAll, String> {
             }
             RevertOutcome::NotApplied => {}
         }
+    }
+    let cursors_undone = undone.iter().any(|name| {
+        themes::parse_journal_id(name).is_some_and(|(part, _)| part == themes::Part::Cursors)
+    });
+    if cursors_undone {
+        // The values are back either way; if Windows does not reload the
+        // cursors now, it does at the next sign-in.
+        let _ = platform::shell::reload_cursors();
     }
     let catalog = catalog()?;
     let undone: Vec<&Tweak> = catalog

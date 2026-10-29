@@ -23,6 +23,7 @@ ipc = { path = "../../../crates/ipc" }
 wpk = { path = "../../../crates/wpk" }
 platform = { path = "../../../crates/platform" }
 tweaks = { path = "../../../crates/tweaks" }
+themes = { path = "../../../crates/themes" }
 base64 = "0.22"
 dirs = "6"
 sha2 = "0.10"
