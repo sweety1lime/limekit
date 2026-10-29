@@ -1,0 +1,17 @@
+[package]
+name = "themes"
+description = "LimeKit themes: cursor sets applied through the tweak journal"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+tweaks = { path = "../tweaks" }
+thiserror.workspace = true
+
+[dev-dependencies]
+platform = { path = "../platform" }
+tempfile = "3"
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-registry = "0.5"

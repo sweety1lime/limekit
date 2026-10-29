@@ -1,5 +1,6 @@
 //! The Windows shell side of a changed setting: telling open windows about it,
-//! and restarting Explorer for the settings it reads only when it starts.
+//! making Windows read cursors again, and restarting Explorer for the settings
+//! it reads only when it starts.
 
 /// Broadcasts `WM_SETTINGCHANGE` for `area`, such as `ImmersiveColorSet`, the
 /// way Windows does after its own settings change. Windows that hang are
@@ -9,6 +10,34 @@ pub fn announce_setting_change(area: &str) {
     win32::announce_setting_change(area);
     #[cfg(not(windows))]
     let _ = area;
+}
+
+/// Makes Windows read the cursors from the registry again, so a changed cursor
+/// shows at once and not at the next sign-in.
+pub fn reload_cursors() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        win32::reload_cursors()
+    }
+    #[cfg(not(windows))]
+    {
+        Err("cursors exist only on Windows".into())
+    }
+}
+
+/// Resolves a string that points into a resource file, such as
+/// `@%SystemRoot%\system32\main.cpl,-1020`, to the text Windows shows in the
+/// current language. `None` for anything else, or when Windows cannot find it.
+pub fn indirect_string(reference: &str) -> Option<String> {
+    #[cfg(windows)]
+    {
+        win32::indirect_string(reference)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = reference;
+        None
+    }
 }
 
 /// Shuts Explorer down and starts it again through the Restart Manager, which
@@ -38,9 +67,10 @@ mod win32 {
     use windows::Win32::System::Threading::{
         GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
     };
+    use windows::Win32::UI::Shell::SHLoadIndirectString;
     use windows::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, GetWindowThreadProcessId, HWND_BROADCAST, SMTO_ABORTIFHUNG,
-        SendMessageTimeoutW, WM_SETTINGCHANGE,
+        FindWindowW, GetWindowThreadProcessId, HWND_BROADCAST, SMTO_ABORTIFHUNG, SPI_SETCURSORS,
+        SPIF_SENDCHANGE, SendMessageTimeoutW, SystemParametersInfoW, WM_SETTINGCHANGE,
     };
     use windows::core::{HSTRING, PCWSTR, PWSTR, w};
 
@@ -63,6 +93,29 @@ mod win32 {
                 None,
             );
         }
+    }
+
+    pub fn reload_cursors() -> Result<(), String> {
+        // SAFETY: SPI_SETCURSORS takes neither a value nor a pointer.
+        unsafe { SystemParametersInfoW(SPI_SETCURSORS, 0, None, SPIF_SENDCHANGE) }
+            .map_err(|error| format!("cursors were not reloaded: {error}"))
+    }
+
+    pub fn indirect_string(reference: &str) -> Option<String> {
+        if !reference.starts_with('@') {
+            return None;
+        }
+        let source = HSTRING::from(reference);
+        let mut buffer = [0u16; 512];
+        // SAFETY: `source` is NUL-terminated and outlives the call, and the
+        // buffer is writable for its whole length.
+        unsafe { SHLoadIndirectString(&source, &mut buffer, None) }.ok()?;
+        let end = buffer
+            .iter()
+            .position(|&unit| unit == 0)
+            .unwrap_or(buffer.len());
+        let text = String::from_utf16_lossy(&buffer[..end]);
+        (!text.is_empty()).then_some(text)
     }
 
     /// The taskbar window, which belongs to the Explorer process that runs the
@@ -140,5 +193,22 @@ mod win32 {
         // SAFETY: as above.
         let code = unsafe { RmRestart(session, None, None) };
         code.ok().map_err(|_| error("restart", code))
+    }
+}
+
+#[cfg(all(windows, test))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_a_reference_into_a_resource_file() {
+        let name = indirect_string(r"@%SystemRoot%\system32\main.cpl,-1020")
+            .expect("main.cpl holds the name of the default cursor scheme");
+        assert!(!name.is_empty() && !name.starts_with('@'), "{name}");
+    }
+
+    #[test]
+    fn plain_text_is_not_a_reference() {
+        assert_eq!(indirect_string("Windows Aero"), None);
     }
 }

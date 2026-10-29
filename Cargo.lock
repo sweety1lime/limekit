@@ -2010,6 +2010,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "themes"
+version = "0.3.1"
+dependencies = [
+ "platform",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tweaks",
+ "windows-registry",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"

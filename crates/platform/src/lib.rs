@@ -134,6 +134,7 @@ mod watcher_win32;
 mod win32;
 
 pub mod appdata;
+pub mod cursors;
 pub mod parameters;
 pub mod registry;
 pub mod resources;
