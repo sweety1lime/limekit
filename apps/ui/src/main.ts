@@ -179,8 +179,12 @@ interface ThemeView {
   partly: ThemePart[];
   // Roles the card can show a picture of, by registry name.
   pictures: string[];
-  // A theme from a package can be deleted from the library.
-  removable: boolean;
+  // A theme from a package is in the library: it can be deleted from it and
+  // saved as a package.
+  in_library: boolean;
+  // Who made it and under what license, when that is known.
+  author: string | null;
+  license: string | null;
 }
 
 interface ThemesView {
@@ -1257,8 +1261,18 @@ function renderTheme(theme: ThemeView): HTMLElement {
       ),
     );
   }
-  if (theme.removable) {
+  if (theme.in_library) {
     actions.append(
+      h(
+        "button",
+        {
+          class: "btn-ghost small",
+          type: "button",
+          disabled: themeBusy ? "true" : undefined,
+          onClick: () => void exportTheme(theme),
+        },
+        t("themes.save"),
+      ),
       h(
         "button",
         {
@@ -1420,6 +1434,97 @@ async function removeTheme(theme: ThemeView) {
     // error text is already shown by call()
   }
   await loadThemes();
+}
+
+// Saves a theme from the library as a package. The file has to say who made the
+// theme and under what license; the window asks for what is not known and the
+// answer stays with the theme.
+async function exportTheme(theme: ThemeView) {
+  if (themeBusy) return;
+  let credit: Credit | null = null;
+  if (!theme.author || !theme.license) {
+    credit = await askCredit(theme);
+    if (!credit) return;
+  }
+  const target = await save({
+    defaultPath: `${theme.title}.${THEME_EXT}`,
+    filters: [{ name: t("themes.packageFilter"), extensions: [THEME_EXT] }],
+  });
+  if (typeof target !== "string") return;
+  try {
+    const saved = await call<string>("theme_export", {
+      id: theme.id,
+      target,
+      author: credit?.author ?? null,
+      license: credit?.license ?? null,
+    });
+    report(t("themes.saved", { title: theme.title, path: saved }));
+  } catch {
+    // error text is already shown by call()
+  }
+  await loadThemes();
+}
+
+interface Credit {
+  author: string;
+  license: string;
+}
+
+// Asks who made a theme and under what license. Resolves with the answer, or
+// with null when the person gives up.
+function askCredit(theme: ThemeView): Promise<Credit | null> {
+  return new Promise((resolve) => {
+    const field = (label: Key, value: string | null, hint?: Key) => {
+      const input = h("input", { type: "text", class: "text-input", maxlength: "200", value: value ?? "" }) as HTMLInputElement;
+      const row = h(
+        "label",
+        { class: "modal-field" },
+        h("span", {}, t(label)),
+        input,
+        hint ? h("span", { class: "modal-hint" }, t(hint)) : null,
+      );
+      return { input, row };
+    };
+    const author = field("themes.creditAuthor", theme.author);
+    const license = field("themes.creditLicense", theme.license, "themes.creditLicenseHint");
+    const problem = h("div", { class: "modal-error", hidden: "" }, t("themes.creditEmpty"));
+
+    const finish = (answer: Credit | null) => {
+      document.removeEventListener("keydown", onKey);
+      backdrop.remove();
+      resolve(answer);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") finish(null);
+    };
+    const form = h(
+      "form",
+      {
+        class: "modal",
+        onSubmit: (event) => {
+          event.preventDefault();
+          const answer = { author: author.input.value.trim(), license: license.input.value.trim() };
+          if (!answer.author || !answer.license) problem.hidden = false;
+          else finish(answer);
+        },
+      },
+      h("div", { class: "modal-title" }, t("themes.creditTitle")),
+      h("p", { class: "modal-text" }, t("themes.creditText", { title: theme.title })),
+      author.row,
+      license.row,
+      problem,
+      h(
+        "div",
+        { class: "modal-actions" },
+        h("button", { class: "btn-ghost small", type: "button", onClick: () => finish(null) }, t("confirm.cancel")),
+        h("button", { class: "btn-primary small", type: "submit" }, t("themes.creditOk")),
+      ),
+    );
+    const backdrop = h("div", { class: "modal-backdrop" }, form);
+    document.addEventListener("keydown", onKey);
+    document.body.append(backdrop);
+    (author.input.value ? license.input : author.input).focus();
+  });
 }
 
 async function importThemeDialog() {

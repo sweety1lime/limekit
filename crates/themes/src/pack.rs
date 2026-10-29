@@ -34,7 +34,7 @@ pub struct PackImport {
 }
 
 /// Where the files of a pack are read from.
-enum Source {
+pub(crate) enum Source {
     Zip(PathBuf),
     Folder(PathBuf),
 }
@@ -56,7 +56,7 @@ impl Source {
     }
 
     /// One file as bytes, at most `limit` of them.
-    fn read(&self, name: &str, limit: u64) -> Result<Vec<u8>, ThemeError> {
+    pub(crate) fn read(&self, name: &str, limit: u64) -> Result<Vec<u8>, ThemeError> {
         match self {
             Source::Zip(package) => Ok(wpk::read_member(package, name, limit)?),
             Source::Folder(root) => {

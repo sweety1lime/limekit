@@ -555,6 +555,7 @@ pub fn run() {
             theme_panel::theme_preview,
             theme_panel::theme_switch,
             theme_panel::theme_import,
+            theme_panel::theme_export,
             theme_panel::theme_remove,
         ])
         .setup(|app| {

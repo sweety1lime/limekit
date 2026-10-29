@@ -13,7 +13,7 @@
 
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::{Component, Path};
+use std::path::{Component, Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use zip::write::SimpleFileOptions;
@@ -253,6 +253,41 @@ pub fn write_package(target: &Path, manifest: &Manifest, files: &[(&str, &Path)]
     Ok(())
 }
 
+/// Writes a zip of `(archive_name, bytes)` members to `target`. The archive is
+/// built in a temporary file beside it and moved into place when it is whole, so
+/// a file that was there is replaced entirely or not at all.
+pub fn write_archive(target: &Path, members: &[(&str, &[u8])]) -> Result<()> {
+    for (name, _) in members {
+        ensure_safe_name(name)?;
+    }
+    if let Some(parent) = target
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut partial = target.as_os_str().to_owned();
+    partial.push(".part");
+    let partial = PathBuf::from(partial);
+
+    let written = (|| -> Result<()> {
+        let mut writer = ZipWriter::new(File::create(&partial)?);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        for (name, bytes) in members {
+            writer.start_file(*name, options)?;
+            writer.write_all(bytes)?;
+        }
+        writer.finish()?.flush()?;
+        Ok(())
+    })();
+    let placed = written.and_then(|()| std::fs::rename(&partial, target).map_err(Into::into));
+    if placed.is_err() {
+        let _ = std::fs::remove_file(&partial);
+    }
+    placed
+}
+
 fn referenced_files(manifest: &Manifest) -> Vec<String> {
     let mut names = vec![manifest.entry.clone()];
     if let Some(preview) = &manifest.preview {
@@ -413,6 +448,41 @@ mod tests {
             read_member(&package, "../wall.mp4", 100),
             Err(WpkError::UnsafeName(_))
         ));
+    }
+
+    #[test]
+    fn an_archive_is_written_whole_and_read_back() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let target = temp.path().join("out").join("a.zip");
+
+        write_archive(&target, &[("a.txt", b"first"), ("dir/b.txt", b"second")]).expect("write");
+
+        let names: Vec<String> = list_members(&target)
+            .expect("list")
+            .into_iter()
+            .map(|member| member.name)
+            .collect();
+        assert_eq!(names, ["a.txt", "dir/b.txt"]);
+        assert_eq!(
+            read_member(&target, "dir/b.txt", 100).expect("read"),
+            b"second"
+        );
+        assert!(!temp.path().join("out").join("a.zip.part").exists());
+    }
+
+    #[test]
+    fn an_archive_replaces_what_was_there_only_when_it_can_be_written() {
+        let temp = tempfile::tempdir().expect("temp dir");
+        let target = temp.path().join("a.zip");
+        std::fs::write(&target, b"the earlier file").expect("earlier");
+
+        let refused = write_archive(&target, &[("fine.txt", b"x"), ("../escape.txt", b"y")]);
+        assert!(matches!(refused, Err(WpkError::UnsafeName(_))));
+        assert_eq!(std::fs::read(&target).expect("read"), b"the earlier file");
+        assert!(!temp.path().join("a.zip.part").exists());
+
+        write_archive(&target, &[("new.txt", b"z")]).expect("write");
+        assert_eq!(read_member(&target, "new.txt", 100).expect("read"), b"z");
     }
 
     #[test]

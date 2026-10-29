@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use platform::sounds::SoundEvent;
 
 use crate::cursors::{CursorSet, Role};
+use crate::pack::Source;
 use crate::package::{
     DESCRIPTOR, FORMAT, FileKind, MAX_DESCRIPTOR_BYTES, MAX_THEME_BYTES, Manifest, ThemeError,
     is_valid_id,
@@ -147,6 +148,84 @@ impl Library {
         std::fs::remove_dir_all(dir)?;
         Ok(())
     }
+
+    /// Saves the theme `id` as a package at `target`, replacing a file there
+    /// only when the package is whole. `credit` is who made the theme and under
+    /// what license, as the person saving it says; it is kept in the library
+    /// too, so the card and the next save agree. Every file is checked again on
+    /// the way out, so one that was changed in the library is not passed on.
+    pub fn export(
+        &self,
+        id: &str,
+        target: &Path,
+        credit: Option<(&str, &str)>,
+    ) -> Result<(), ThemeError> {
+        let theme = self
+            .get(id)
+            .ok_or_else(|| ThemeError::NotInLibrary(id.to_owned()))?;
+        let mut manifest = theme.manifest;
+        if let Some((author, license)) = credit {
+            manifest.author = author.trim().to_owned();
+            manifest.license = license.trim().to_owned();
+            manifest.validate()?;
+        }
+        let descriptor = serde_json::to_vec_pretty(&manifest)
+            .map_err(|error| ThemeError::Descriptor(error.to_string()))?;
+
+        let source = Source::Folder(theme.dir.clone());
+        let mut total = descriptor.len() as u64;
+        let mut members = vec![(DESCRIPTOR.to_owned(), descriptor.clone())];
+        for (name, kind) in manifest.files() {
+            let bytes = read_checked(&|name, limit| source.read(name, limit), &name, kind)?;
+            total += bytes.len() as u64;
+            if total > MAX_THEME_BYTES {
+                return Err(ThemeError::TooBig);
+            }
+            members.push((name, bytes));
+        }
+        let members: Vec<(&str, &[u8])> = members
+            .iter()
+            .map(|(name, bytes)| (name.as_str(), bytes.as_slice()))
+            .collect();
+        wpk::write_archive(target, &members)?;
+
+        if credit.is_some() {
+            replace_file(&theme.dir.join(DESCRIPTOR), &descriptor)?;
+        }
+        Ok(())
+    }
+}
+
+/// One file of a theme as `read` gives it, within the cap for its kind and with
+/// the header its kind has.
+fn read_checked(read: &Reader<'_>, name: &str, kind: FileKind) -> Result<Vec<u8>, ThemeError> {
+    let bytes = read(name, kind.cap()).map_err(|error| match error {
+        ThemeError::Package(wpk::WpkError::TooLarge { limit, .. }) => ThemeError::BadFile {
+            name: name.to_owned(),
+            why: format!("a {} may be {limit} bytes at most", kind.describe()),
+        },
+        other => other,
+    })?;
+    if !kind.matches(&bytes) {
+        return Err(ThemeError::BadFile {
+            name: name.to_owned(),
+            why: format!("is not a {} file", kind.describe()),
+        });
+    }
+    Ok(bytes)
+}
+
+/// Writes `bytes` to `path` through a temporary file beside it, so that what
+/// was there is replaced whole or not at all.
+fn replace_file(path: &Path, bytes: &[u8]) -> Result<(), ThemeError> {
+    let mut partial = path.as_os_str().to_owned();
+    partial.push(".part");
+    let partial = PathBuf::from(partial);
+    std::fs::write(&partial, bytes)?;
+    std::fs::rename(&partial, path).inspect_err(|_| {
+        let _ = std::fs::remove_file(&partial);
+    })?;
+    Ok(())
 }
 
 /// Writes the descriptor and each file the descriptor names into `staging`,
@@ -159,19 +238,7 @@ fn stage(
 ) -> Result<(), ThemeError> {
     let mut total = descriptor.len() as u64;
     for (name, kind) in files {
-        let bytes = read(name, kind.cap()).map_err(|error| match error {
-            ThemeError::Package(wpk::WpkError::TooLarge { limit, .. }) => ThemeError::BadFile {
-                name: name.clone(),
-                why: format!("a {} may be {limit} bytes at most", kind.describe()),
-            },
-            other => other,
-        })?;
-        if !kind.matches(&bytes) {
-            return Err(ThemeError::BadFile {
-                name: name.clone(),
-                why: format!("is not a {} file", kind.describe()),
-            });
-        }
+        let bytes = read_checked(read, name, *kind)?;
         total += bytes.len() as u64;
         if total > MAX_THEME_BYTES {
             return Err(ThemeError::TooBig);
@@ -657,5 +724,112 @@ mod tests {
         library.remove("midnight").unwrap();
 
         assert!(library.list().is_empty());
+    }
+
+    #[test]
+    fn a_theme_is_saved_as_a_package_that_imports_again_just_the_same() {
+        let temp = tempfile::tempdir().unwrap();
+        let here = library(&temp.path().join("here"));
+        let there = library(&temp.path().join("there"));
+        let theme = here.import(&midnight(temp.path())).unwrap();
+        let saved = temp.path().join("out").join("saved.limetheme");
+
+        here.export("midnight", &saved, None).unwrap();
+        let again = there.import(&saved).unwrap();
+
+        assert_eq!(again.manifest, theme.manifest);
+        for file in ["cursors/arrow.cur", "sounds/a.wav", "preview.png"] {
+            assert_eq!(
+                std::fs::read(file_path(&again.dir, file)).unwrap(),
+                std::fs::read(file_path(&theme.dir, file)).unwrap(),
+                "{file}"
+            );
+        }
+        assert!(
+            !temp
+                .path()
+                .join("out")
+                .join("saved.limetheme.part")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn the_credit_given_on_the_way_out_goes_into_the_package_and_stays_in_the_library() {
+        let temp = tempfile::tempdir().unwrap();
+        let library = library(temp.path());
+        library.import(&midnight(temp.path())).unwrap();
+        let saved = temp.path().join("saved.limetheme");
+
+        library
+            .export("midnight", &saved, Some(("  New Author ", "MIT")))
+            .unwrap();
+
+        let exported = self::library(&temp.path().join("other"))
+            .import(&saved)
+            .unwrap();
+        assert_eq!(exported.manifest.author, "New Author");
+        assert_eq!(exported.manifest.license, "MIT");
+        let kept = library.get("midnight").unwrap();
+        assert_eq!(
+            (
+                kept.manifest.author.as_str(),
+                kept.manifest.license.as_str()
+            ),
+            ("New Author", "MIT")
+        );
+        assert_eq!(
+            library.list().len(),
+            1,
+            "the descriptor is still a good one"
+        );
+    }
+
+    #[test]
+    fn an_empty_credit_is_refused_and_nothing_is_written() {
+        let temp = tempfile::tempdir().unwrap();
+        let library = library(temp.path());
+        library.import(&midnight(temp.path())).unwrap();
+        let saved = temp.path().join("saved.limetheme");
+
+        let error = library
+            .export("midnight", &saved, Some(("", "MIT")))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("author"), "{error}");
+        assert!(!saved.exists());
+        assert_eq!(
+            library.get("midnight").unwrap().manifest.author,
+            "A. Author"
+        );
+    }
+
+    #[test]
+    fn a_theme_that_is_not_in_the_library_is_not_saved() {
+        let temp = tempfile::tempdir().unwrap();
+        let library = library(temp.path());
+
+        let error = library
+            .export("nobody", &temp.path().join("x.limetheme"), None)
+            .unwrap_err();
+
+        assert!(matches!(error, ThemeError::NotInLibrary(_)));
+        assert!(!temp.path().join("x.limetheme").exists());
+    }
+
+    #[test]
+    fn a_file_changed_in_the_library_is_not_passed_on_and_the_old_package_stays() {
+        let temp = tempfile::tempdir().unwrap();
+        let library = library(temp.path());
+        let theme = library.import(&midnight(temp.path())).unwrap();
+        std::fs::write(file_path(&theme.dir, "cursors/arrow.cur"), b"not a cursor").unwrap();
+        let saved = temp.path().join("saved.limetheme");
+        std::fs::write(&saved, b"the package saved before").unwrap();
+
+        let error = library.export("midnight", &saved, None).unwrap_err();
+
+        assert!(error.to_string().contains("arrow.cur"), "{error}");
+        assert_eq!(std::fs::read(&saved).unwrap(), b"the package saved before");
+        assert!(!temp.path().join("saved.limetheme.part").exists());
     }
 }

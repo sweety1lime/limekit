@@ -162,6 +162,22 @@ const strings = {
     en: "The pack lacks files the .inf names: {list}.",
   },
   "themes.packSkipped": { ru: "Не добавлены схемы: {list}.", en: "Schemes not added: {list}." },
+  "themes.save": { ru: "Сохранить как…", en: "Save as…" },
+  "themes.packageFilter": { ru: "Тема LimeKit", en: "LimeKit theme" },
+  "themes.saved": { ru: "Тема «{title}» сохранена: {path}", en: "Theme “{title}” saved: {path}" },
+  "themes.creditTitle": { ru: "Автор и лицензия", en: "Author and license" },
+  "themes.creditText": {
+    ru: "В файле темы «{title}» нужно указать, кто её сделал и на каких условиях её можно использовать. Впишите то, что вам известно: LimeKit запишет это в файл и оставит у темы в библиотеке.",
+    en: "The file of the theme “{title}” has to say who made it and under what terms it may be used. Fill in what you know: LimeKit writes it into the file and keeps it with the theme in the library.",
+  },
+  "themes.creditAuthor": { ru: "Автор", en: "Author" },
+  "themes.creditLicense": { ru: "Лицензия", en: "License" },
+  "themes.creditLicenseHint": {
+    ru: "Например, CC-BY-4.0, MIT или «все права защищены»",
+    en: "For example CC-BY-4.0, MIT or “all rights reserved”",
+  },
+  "themes.creditEmpty": { ru: "Заполните оба поля.", en: "Fill in both fields." },
+  "themes.creditOk": { ru: "Сохранить", en: "Save" },
   "themes.remove": { ru: "Удалить", en: "Delete" },
   "themes.removeTitle": { ru: "Удалить тему", en: "Delete the theme" },
   "themes.removeQuestion": {

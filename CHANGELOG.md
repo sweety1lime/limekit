@@ -39,6 +39,13 @@
   named in the notice, and a pack's author and license, which it does not
   carry, show as not stated.
 
+- **Saving a theme as a package.** "Сохранить как…" on a theme from the
+  library writes it out as a `.limetheme`, which is how a cursor pack becomes one
+  clean file. A package must say who made the theme and under what license, so
+  for a theme that does not have them the window asks, and keeps the answer
+  with the theme. The files are checked again on the way out, and a file that
+  was there is replaced whole or not at all.
+
 ### Changed
 
 - The "Твики" button in the title bar is now "Windows": tweaks and themes sit
@@ -52,6 +59,8 @@
 - New crate `crates/themes`; `platform::cursors` reads the schemes Windows
   ships, and `platform::shell` can reload cursors and resolve `@file,-id`
   strings. The design is in `docs/research/themes.md`.
+- `wpk::write_archive` writes a zip of named byte members through a temporary
+  file beside the target.
 - `platform::text::from_ansi` decodes text in the system code page, for `.inf`
   files that carry no byte order mark.
 - `wpk::list_members` and `wpk::read_member` give another zip format the same

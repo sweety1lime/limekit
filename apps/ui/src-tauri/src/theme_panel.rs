@@ -175,6 +175,11 @@ fn credit(author: &str, license: &str, lang: &str) -> String {
     }
 }
 
+/// `value` when somebody stated it, `None` for what a package without it says.
+fn stated(value: &str) -> Option<String> {
+    (value != themes::UNSTATED).then(|| value.to_owned())
+}
+
 /// A theme from a package, with the sounds as this Windows has them.
 fn from_package(theme: &LibraryTheme, events: &[SoundEvent], lang: &str) -> Theme {
     let mut parts = Vec::new();
@@ -272,8 +277,13 @@ pub struct ThemeView {
     partly: Vec<&'static str>,
     /// Roles the card can show a picture of, by registry name.
     pictures: Vec<&'static str>,
-    /// A theme from a package can be deleted from the library.
-    removable: bool,
+    /// A theme from a package is in the library: it can be deleted from it and
+    /// saved as a package.
+    in_library: bool,
+    /// Who made the theme and under what license, when that is known: the
+    /// window asks for what is not before it saves the theme.
+    author: Option<String>,
+    license: Option<String>,
 }
 
 #[tauri::command]
@@ -283,12 +293,17 @@ pub async fn themes_view(
 ) -> Result<ThemesView, String> {
     let version = platform::system::windows_version();
     let requirements = themes::requirements();
-    let sets = all(&lang, &platform::sounds::events(), &packages());
+    let library = packages();
+    let sets = all(&lang, &platform::sounds::events(), &library);
     with_engine(&state, |engine| {
         let views = sets
             .iter()
             .map(|theme| {
                 let standing = Standing::of(engine, theme, &REAL);
+                let manifest = library
+                    .iter()
+                    .find(|found| found.id() == theme.id)
+                    .map(|found| &found.manifest);
                 ThemeView {
                     id: theme.id.clone(),
                     title: theme.title.clone(),
@@ -325,7 +340,9 @@ pub async fn themes_view(
                                 .map(|role| role.name())
                         })
                         .collect(),
-                    removable: theme.source == Source::Package,
+                    in_library: theme.source == Source::Package,
+                    author: manifest.and_then(|manifest| stated(&manifest.author)),
+                    license: manifest.and_then(|manifest| stated(&manifest.license)),
                 }
             })
             .collect();
@@ -721,6 +738,39 @@ pub async fn theme_import(path: String) -> Result<ImportResult, String> {
         .map_err(|error| error.to_string())?
 }
 
+/// `target` with the package extension, added after whatever the name ends in
+/// when it lacks it: "Midnight 1.0" becomes "Midnight 1.0.limetheme", not
+/// "Midnight 1.limetheme".
+fn package_path(mut target: String) -> String {
+    if !themes::has_theme_extension(Path::new(&target)) {
+        target.push('.');
+        target.push_str(themes::EXTENSION);
+    }
+    target
+}
+
+/// Saves a theme from the library as a `.limetheme` at `target` and returns
+/// where it went. `author` and `license` are what the person saving it says,
+/// which the window asks for when the theme does not have them.
+#[tauri::command]
+pub async fn theme_export(
+    id: String,
+    target: String,
+    author: Option<String>,
+    license: Option<String>,
+) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = package_path(target);
+        let credit = author.as_deref().zip(license.as_deref());
+        library()?
+            .export(&id, Path::new(&path), credit)
+            .map_err(|error| describe(&error))?;
+        Ok(path)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 /// Deletes a theme from the library. A theme in effect is taken off first,
 /// because the registry points at its files. Values something changed since
 /// stay as they are and come back as the result.
@@ -1067,6 +1117,32 @@ mod tests {
             credit("Me", themes::UNSTATED, "ru"),
             "Автор: Me. Лицензия не указана."
         );
+    }
+
+    #[test]
+    fn a_saved_package_gets_its_extension_added_and_never_swapped() {
+        assert_eq!(
+            package_path(r"C:\x\Midnight".into()),
+            r"C:\x\Midnight.limetheme"
+        );
+        assert_eq!(
+            package_path(r"C:\x\Midnight 1.0".into()),
+            r"C:\x\Midnight 1.0.limetheme"
+        );
+        assert_eq!(
+            package_path(r"C:\x\Midnight.limetheme".into()),
+            r"C:\x\Midnight.limetheme"
+        );
+        assert_eq!(
+            package_path(r"C:\x\Midnight.LimeTheme".into()),
+            r"C:\x\Midnight.LimeTheme"
+        );
+    }
+
+    #[test]
+    fn a_credit_nobody_gave_is_not_stated() {
+        assert_eq!(stated(themes::UNSTATED), None);
+        assert_eq!(stated("A. Author"), Some("A. Author".to_owned()));
     }
 
     #[test]

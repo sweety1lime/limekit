@@ -232,6 +232,23 @@ you may use. Save both registry keys as above first.
    the cursors and sounds come back, and the `.limetheme` key is gone with the
    other associations.
 
+To save a theme as a package, use one that came from a cursor pack and one that
+came from a `.limetheme` with an author and a license:
+
+1. Press **Сохранить как…** on the one from a pack. A form asks for the author
+   and the license; pressing **Сохранить** with an empty field says to fill in
+   both, and **Отмена** or Esc ends it with nothing saved.
+2. Fill both in and pick a place. The file is a `.limetheme` even when the name
+   you typed had no extension. The card now says the author and the license you
+   gave, and pressing **Сохранить как…** again goes straight to the file dialog.
+3. Add the saved file back (delete the theme first, since the same id is
+   refused): the theme is the same, with your author and license, and applying
+   it changes what it did before.
+4. Press **Сохранить как…** on the one that has an author and a license: no
+   form, just the file dialog. Saving over a file that is there replaces it.
+5. The cards of the Windows cursor sets and of **Без звуков** have no such
+   button.
+
 For a cursor pack, take a real one: a folder with an `Install.inf` and its
 `.cur` and `.ani` files, from an open-source pack such as Capitaine, Vimix or
 Breeze, and a zip of the same folder. Save the cursors registry as above first.
