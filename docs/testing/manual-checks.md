@@ -211,7 +211,10 @@ you may use. Save both registry keys as above first.
    and names the events this Windows does not have as left out.
 3. The pointer and a system sound change at once. **Вернуть** puts both back.
 4. Add the same package again: the window says the theme is already in the
-   library.
+   library. With a theme that has both parts applied, apply a theme that has
+   cursors only. The confirmation names the first theme. Afterwards the first
+   card says it is applied partly, with its sounds still on, and **Вернуть** on
+   it takes the sounds off and leaves the cursors of the second theme.
 5. Double-click a `.limetheme` file with another id; if the window was closed it
    opens first. The theme is in the list. Drag a third one onto the open
    window: the same.

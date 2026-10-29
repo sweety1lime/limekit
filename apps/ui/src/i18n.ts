@@ -179,6 +179,10 @@ const strings = {
     ru: "применена через LimeKit, «Вернуть» вернёт как было",
     en: "applied by LimeKit; Put back restores what was there",
   },
+  "themes.appliedPart": {
+    ru: "применена частично, осталось: {parts}; «Вернуть» вернёт как было",
+    en: "partly applied, still on: {parts}; Put back restores what was there",
+  },
   "themes.builtin": { ru: "встроенный", en: "built-in" },
   "themes.nothing": {
     ru: "Ничего не изменится: всё уже так, как в теме.",

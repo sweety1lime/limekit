@@ -93,6 +93,27 @@ impl Theme {
     }
 }
 
+/// How much of a theme is in effect.
+struct Standing {
+    /// The parts LimeKit has put on for this theme.
+    in_effect: Vec<Part>,
+    /// Every part that has something to change is among them.
+    whole: bool,
+}
+
+impl Standing {
+    fn of(engine: &Engine<CurrentUser>, theme: &Theme, keys: &Keys) -> Standing {
+        let active = |part: Part| themes::active(engine, part).as_deref() == Some(&theme.id);
+        let parts = || theme.parts.iter().map(Content::part);
+        Standing {
+            in_effect: parts().filter(|part| active(*part)).collect(),
+            // A part with nothing to change, say a package's sounds that this
+            // Windows has no event for, does not stand in the way.
+            whole: parts().all(|part| active(part) || theme.changes(part, keys).is_empty()),
+        }
+    }
+}
+
 /// The library of imported packages, in the per-user data directory.
 fn library() -> Result<themes::Library, String> {
     let data = platform::appdata::user_dir().ok_or("no per-user data directory on this system")?;
@@ -233,9 +254,13 @@ pub struct ThemeView {
     /// "cursors" and "sounds", whichever the theme has.
     parts: Vec<&'static str>,
     availability: AvailabilityView,
-    /// LimeKit has this theme in effect, so taking it off gives back what was
-    /// there before LimeKit.
+    /// LimeKit has some of this theme in effect, so taking it off gives back
+    /// what was there before LimeKit.
     applied: bool,
+    /// The parts in effect when that is not the whole theme, say a package's
+    /// sounds after a cursor set took its cursors over. Empty when the theme is
+    /// in effect whole or not at all.
+    partly: Vec<&'static str>,
     /// Roles the card can show a picture of, by registry name.
     pictures: Vec<&'static str>,
     /// A theme from a package can be deleted from the library.
@@ -254,16 +279,7 @@ pub async fn themes_view(
         let views = sets
             .iter()
             .map(|theme| {
-                let active =
-                    |part: Part| themes::active(engine, part).as_deref() == Some(&theme.id);
-                // A part with nothing to change, say a package's sounds that
-                // this Windows has no event for, does not stand in the way.
-                let relevant: Vec<Part> = theme
-                    .parts
-                    .iter()
-                    .map(Content::part)
-                    .filter(|part| active(*part) || !theme.changes(*part, &REAL).is_empty())
-                    .collect();
+                let standing = Standing::of(engine, theme, &REAL);
                 ThemeView {
                     id: theme.id.clone(),
                     title: theme.title.clone(),
@@ -280,7 +296,12 @@ pub async fn themes_view(
                             requirements.availability(version)
                         })
                         .into(),
-                    applied: !relevant.is_empty() && relevant.iter().all(|part| active(*part)),
+                    applied: !standing.in_effect.is_empty(),
+                    partly: if standing.whole {
+                        Vec::new()
+                    } else {
+                        standing.in_effect.iter().map(|part| part.name()).collect()
+                    },
                     pictures: theme
                         .parts
                         .iter()
@@ -768,6 +789,21 @@ mod tests {
             }
         }
 
+        /// A theme with cursors only, which takes the cursors over from
+        /// [`Sandbox::theme`] and leaves its sounds.
+        fn cursors_only(&self) -> Theme {
+            Theme {
+                id: "cursors-only".into(),
+                title: "Cursors only".into(),
+                parts: vec![Content::Cursors(CursorSet {
+                    id: "cursors-only".into(),
+                    name: "Cursors only".into(),
+                    roles: vec![(Role::Arrow, r"C:\test\other.cur".into())],
+                })],
+                ..self.theme()
+            }
+        }
+
         fn switch(&mut self, theme: &Theme, on: bool) -> SwitchOutcome {
             let cursors = self.cursors_key();
             let sounds = self.sounds_key();
@@ -776,6 +812,16 @@ mod tests {
                 sounds: &sounds,
             };
             switch_theme(&mut self.engine, theme, on, &keys).unwrap()
+        }
+
+        fn standing(&self, theme: &Theme) -> Standing {
+            let cursors = self.cursors_key();
+            let sounds = self.sounds_key();
+            let keys = Keys {
+                cursors: &cursors,
+                sounds: &sounds,
+            };
+            Standing::of(&self.engine, theme, &keys)
         }
     }
 
@@ -801,6 +847,50 @@ mod tests {
 
         assert_eq!(sandbox.arrow(), sz(r"C:\original\arrow.cur"));
         assert_eq!(sandbox.close(), sz(r"C:\Windows\media\close.wav"));
+    }
+
+    #[test]
+    fn a_theme_is_in_effect_whole_or_not_at_all_when_nothing_takes_a_part() {
+        let mut sandbox = Sandbox::new("standing");
+        let theme = sandbox.theme();
+
+        let before = sandbox.standing(&theme);
+        assert!(before.in_effect.is_empty() && !before.whole);
+
+        sandbox.switch(&theme, true);
+        let on = sandbox.standing(&theme);
+        assert_eq!(on.in_effect, [Part::Cursors, Part::Sounds]);
+        assert!(on.whole);
+
+        sandbox.switch(&theme, false);
+        assert!(sandbox.standing(&theme).in_effect.is_empty());
+    }
+
+    #[test]
+    fn a_theme_that_lost_its_cursors_to_another_keeps_its_sounds_and_can_be_put_back() {
+        let mut sandbox = Sandbox::new("partly");
+        let both = sandbox.theme();
+        let cursors_only = sandbox.cursors_only();
+        sandbox.switch(&both, true);
+
+        sandbox.switch(&cursors_only, true);
+
+        // The other theme has the cursors; the sounds are still the first one's.
+        assert_eq!(sandbox.arrow(), sz(r"C:\test\other.cur"));
+        assert_eq!(sandbox.close(), sz(""));
+        let left = sandbox.standing(&both);
+        assert_eq!(left.in_effect, [Part::Sounds]);
+        assert!(!left.whole, "the screen has to say it is only partly on");
+        let taker = sandbox.standing(&cursors_only);
+        assert_eq!(taker.in_effect, [Part::Cursors]);
+        assert!(taker.whole);
+
+        // Put back takes off what is left of it, and not what is not its own.
+        assert!(matches!(sandbox.switch(&both, false), SwitchOutcome::Done));
+        assert_eq!(sandbox.close(), sz(r"C:\Windows\media\close.wav"));
+        assert_eq!(sandbox.arrow(), sz(r"C:\test\other.cur"));
+        assert!(sandbox.standing(&both).in_effect.is_empty());
+        assert!(sandbox.standing(&cursors_only).whole);
     }
 
     #[test]

@@ -170,7 +170,11 @@ interface ThemeView {
   // The parts the theme has: cursors, sounds, or both.
   parts: ThemePart[];
   availability: Availability;
+  // Some part of the theme is in effect.
   applied: boolean;
+  // The parts in effect when that is not the whole theme, say its sounds after
+  // another theme took its cursors over.
+  partly: ThemePart[];
   // Roles the card can show a picture of, by registry name.
   pictures: string[];
   // A theme from a package can be deleted from the library.
@@ -1278,8 +1282,14 @@ function renderTheme(theme: ThemeView): HTMLElement {
         availabilityText(theme.availability),
       ),
     ),
-    theme.applied ? h("div", { class: "setting-hint lime" }, t("themes.applied")) : null,
+    theme.applied ? h("div", { class: "setting-hint lime" }, appliedText(theme)) : null,
   );
+}
+
+function appliedText(theme: ThemeView): string {
+  if (theme.partly.length === 0) return t("themes.applied");
+  const parts = theme.partly.map((part) => t(part === "sounds" ? "themes.sounds" : "themes.cursors"));
+  return t("themes.appliedPart", { parts: parts.join(", ") });
 }
 
 // A card works without its pictures, so one that cannot be loaded just goes.

@@ -12,7 +12,9 @@
   and unlocking included, and leaves the alarm and ringtone melodies alone.
   "Вернуть" gives back exactly what was there before LimeKit, cursors and
   sounds that were empty or not set at all included. Cursors and sounds go on
-  and off independently. A theme goes through the same journal as a tweak, so
+  and off independently: when a cursor set takes the cursors from a theme that
+  also has sounds, its card says it is applied partly and "Вернуть" takes off
+  what is left. A theme goes through the same journal as a tweak, so
   "Вернуть всё", the `.reg` undo and "Убрать LimeKit из системы" cover it too.
   Themes are not checked on any Windows build yet, and the screen says so.
 - **Theme packages, `.limetheme`.** "Добавить тему" on the "Темы" tab, a drop
